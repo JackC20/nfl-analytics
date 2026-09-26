@@ -10,6 +10,13 @@ version: 0.2
 #   FUNCTION_NAME    nfl-analytics-ingestion
 #
 # The project must have "Privileged" enabled, or docker build cannot run.
+#
+# Two parser rules this file has to respect:
+#   - every command is a single-line string, no YAML block scalars (- |)
+#   - a command containing ": " must be quoted, or YAML reads it as a mapping
+#
+# The image URI goes in a file rather than a shell variable because CodeBuild
+# may run each command in its own shell, so assignments do not carry over.
 
 phases:
   pre_build:
@@ -17,23 +24,19 @@ phases:
       # Tag with the commit sha so each build is a distinct image URI. Lambda
       # pins an image by digest, so reusing :latest would leave the function on
       # the old image even after a successful push.
-      - IMAGE_URI="$REGISTRY/$ECR_REPOSITORY:${CODEBUILD_RESOLVED_SOURCE_VERSION:-manual}"
-      - echo "Building $IMAGE_URI"
+      - echo "$REGISTRY/$ECR_REPOSITORY:${CODEBUILD_RESOLVED_SOURCE_VERSION:-manual}" > /tmp/image_uri
+      - 'echo "Building $(cat /tmp/image_uri)"'
       - aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$REGISTRY"
 
   build:
     commands:
-      - docker build --platform linux/amd64 -t "$IMAGE_URI" ingestion
+      - docker build --platform linux/amd64 -t "$(cat /tmp/image_uri)" ingestion
 
   post_build:
     commands:
-      - docker push "$IMAGE_URI"
-      # Expected to fail on the first build, before the function exists. Create
-      # the Lambda from the image this build pushed, then every later build
-      # updates it in place.
-      - |
-        aws lambda update-function-code \
-          --function-name "$FUNCTION_NAME" \
-          --image-uri "$IMAGE_URI" \
-        || echo "Lambda $FUNCTION_NAME not found — create it from $IMAGE_URI"
-      - echo "Image pushed: $IMAGE_URI"
+      - docker push "$(cat /tmp/image_uri)"
+      # The || is expected to fire on the first build, before the function
+      # exists. Create the Lambda from the image this build pushed, and every
+      # later build updates it in place.
+      - aws lambda update-function-code --function-name "$FUNCTION_NAME" --image-uri "$(cat /tmp/image_uri)" || echo "Lambda $FUNCTION_NAME not found, create it from $(cat /tmp/image_uri)"
+      - 'echo "Image pushed: $(cat /tmp/image_uri)"'
