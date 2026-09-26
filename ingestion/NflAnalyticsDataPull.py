@@ -27,6 +27,10 @@ Layout written:
 
 Lambda caps a run at 15 minutes, so SEASONS=all does not fit there.
 Run the full backfill locally instead.
+
+The run fails — raising in Lambda, exiting non-zero locally — when a dataset
+errors OR when it was pulled and wrote zero rows. The second case matters:
+a source going quiet otherwise looks exactly like a healthy run.
 """
 
 import io
@@ -164,17 +168,25 @@ def resolve_datasets(raw_value: Optional[str]) -> list[str]:
 # S3 write                  ---
 # -----------------------------
 
-def write_parquet(df: Optional[pl.DataFrame], bucket: str, key: str) -> None:
-    """Polars dataframe -> parquet bytes -> S3. No pandas needed"""
+def write_parquet(df: Optional[pl.DataFrame], bucket: str, key: str) -> int:
+    """
+    Polars dataframe -> parquet bytes -> S3. No pandas needed
+
+    Returns the number of rows written, 0 if there was nothing to write. The
+    caller adds these up so a run that writes nothing can be reported as a
+    failure instead of a silent success.
+    """
     if df is None or df.height == 0:
         log.warning(f"Empty dataframe, skipping {key}")
-        return
+        return 0
 
     buf = io.BytesIO()
     df.write_parquet(buf)
     buf.seek(0)
     s3.put_object(Bucket=bucket, Key=key, Body=buf.getvalue())
     log.info(f"wrote {df.height} rows -> s3://{bucket}/{key}")
+
+    return df.height
 
 
 def build_key(prefix: str, dataset: str, ingest_date: str, season: Optional[int] = None, suffix: Optional[str] = None) -> str:
@@ -205,29 +217,44 @@ def build_key(prefix: str, dataset: str, ingest_date: str, season: Optional[int]
 # Per dataset pulls         ---
 # Pull one season at a time ---
 # -----------------------------
+#
+# Each returns (attempts, rows): how many writes were tried, and how many rows
+# landed. The two are separate so run() can tell apart a source with nothing
+# applicable to pull (attempts == 0, fine) from one that was pulled and came
+# back empty (attempts > 0, rows == 0, a problem worth alerting on).
 
 
-def ingest_pbp(seasons_arg: Optional[str], bucket: str, prefix: str, ingest_date: str) -> None:
+def ingest_pbp(seasons_arg: Optional[str], bucket: str, prefix: str, ingest_date: str) -> tuple[int, int]:
+    attempts = rows = 0
     for season in resolve_seasons(seasons_arg, PBP_START):
         df = nfl.load_pbp(seasons=[season])
-        write_parquet(df, bucket, build_key(prefix, "pbp", ingest_date, season))
+        attempts += 1
+        rows += write_parquet(df, bucket, build_key(prefix, "pbp", ingest_date, season))
+    return attempts, rows
 
 
-def ingest_participation(seasons_arg: Optional[str], bucket: str, prefix: str, ingest_date: str) -> None:
+def ingest_participation(seasons_arg: Optional[str], bucket: str, prefix: str, ingest_date: str) -> tuple[int, int]:
+    attempts = rows = 0
     for season in resolve_seasons(seasons_arg, PARTICIPATION_START, end_offset=PARTICIPATION_LAG):
         df = nfl.load_participation(seasons=[season])
-        write_parquet(df, bucket, build_key(prefix, "participation", ingest_date, season))
+        attempts += 1
+        rows += write_parquet(df, bucket, build_key(prefix, "participation", ingest_date, season))
+    return attempts, rows
 
 
-def ingest_nextgen_stats(seasons_arg: Optional[str], bucket: str, prefix: str, ingest_date: str) -> None:
+def ingest_nextgen_stats(seasons_arg: Optional[str], bucket: str, prefix: str, ingest_date: str) -> tuple[int, int]:
+    attempts = rows = 0
     for season in resolve_seasons(seasons_arg, NGS_START):
         for stat_type in NGS_STAT_TYPES:
             df = nfl.load_nextgen_stats(seasons=[season], stat_type=stat_type)
             key = build_key(prefix, "nextgen_stats", ingest_date, season, suffix=stat_type)
-            write_parquet(df, bucket, key)
+            attempts += 1
+            rows += write_parquet(df, bucket, key)
+    return attempts, rows
 
 
-def ingest_pfr_advstats(seasons_arg: Optional[str], bucket: str, prefix: str, ingest_date: str) -> None:
+def ingest_pfr_advstats(seasons_arg: Optional[str], bucket: str, prefix: str, ingest_date: str) -> tuple[int, int]:
+    attempts = rows = 0
     for season in resolve_seasons(seasons_arg, PFR_START):
         for stat_type in PFR_STAT_TYPES:
             df = nfl.load_pfr_advstats(
@@ -236,18 +263,20 @@ def ingest_pfr_advstats(seasons_arg: Optional[str], bucket: str, prefix: str, in
                 summary_level="week",
             )
             key = build_key(prefix, "pfr_advstats", ingest_date, season, suffix=stat_type)
-            write_parquet(df, bucket, key)
+            attempts += 1
+            rows += write_parquet(df, bucket, key)
+    return attempts, rows
 
 
-def ingest_players(seasons_arg: Optional[str], bucket: str, prefix: str, ingest_date: str) -> None:
+def ingest_players(seasons_arg: Optional[str], bucket: str, prefix: str, ingest_date: str) -> tuple[int, int]:
     # Not season-scoped — full table each run, snapshotted by ingest_date.
     df = nfl.load_players()
-    write_parquet(df, bucket, build_key(prefix, "players", ingest_date))
+    return 1, write_parquet(df, bucket, build_key(prefix, "players", ingest_date))
 
 
-def ingest_teams(seasons_arg: Optional[str], bucket: str, prefix: str, ingest_date: str) -> None:
+def ingest_teams(seasons_arg: Optional[str], bucket: str, prefix: str, ingest_date: str) -> tuple[int, int]:
     df = nfl.load_teams()
-    write_parquet(df, bucket, build_key(prefix, "teams", ingest_date))
+    return 1, write_parquet(df, bucket, build_key(prefix, "teams", ingest_date))
 
 
 
@@ -290,8 +319,11 @@ def run(config: dict[str, str]) -> dict:
 
     log.info(f"run start | bucket={bucket} | seasons={seasons_arg or 'current'} | datasets={datasets} | ingest_date={ingest_date}")
 
-    failures = []
+    failures = []     # raised an exception
+    empty = []        # pulled, but every write came back with zero rows
+    skipped = []      # nothing applicable to pull, e.g. a season this source predates
     completed = []
+    written = {}      # dataset -> rows written
 
     for name in datasets:
         ingestor = INGESTORS.get(name)
@@ -301,22 +333,41 @@ def run(config: dict[str, str]) -> dict:
             continue
 
         try:
-            ingestor(seasons_arg, bucket, prefix, ingest_date)
-            completed.append(name)
+            attempts, rows = ingestor(seasons_arg, bucket, prefix, ingest_date)
+
+            if attempts == 0:
+                log.warning(f"nothing applicable to pull for {name}")
+                skipped.append(name)
+            elif rows == 0:
+                # Succeeding while writing nothing is the failure mode that
+                # otherwise looks identical to a good run. Treat it as an error.
+                log.error(f"{name} returned no rows across {attempts} attempts")
+                empty.append(name)
+            else:
+                completed.append(name)
+                written[name] = rows
 
         except Exception as e:
             log.exception(f"failed: {name} {e}")
             failures.append(name)
 
-    log.info(f"run complete | completed={completed} | failed={failures}")
+    log.info(f"run complete | written={written} | skipped={skipped} | empty={empty} | failed={failures}")
 
     return {
         "bucket": bucket,
         "prefix": prefix,
         "ingest_date": ingest_date,
         "completed": completed,
+        "written": written,
+        "skipped": skipped,
+        "empty": empty,
         "failed": failures,
     }
+
+
+def problems(summary: dict) -> list[str]:
+    """Datasets that should stop the run: errored, or wrote nothing at all."""
+    return summary["failed"] + summary["empty"]
 
 
 def handler(event, context) -> dict:
@@ -326,8 +377,9 @@ def handler(event, context) -> dict:
     """
     summary = run(get_config(event or {}))
 
-    if summary["failed"]:
-        raise RuntimeError(f"ingestion failed for: {', '.join(summary['failed'])}")
+    bad = problems(summary)
+    if bad:
+        raise RuntimeError(f"ingestion failed or wrote nothing for: {', '.join(bad)}")
 
     return summary
 
@@ -335,8 +387,9 @@ def handler(event, context) -> dict:
 def main() -> None:
     summary = run(get_config())
 
-    if summary["failed"]:
-        raise SystemExit(f"ingestion failed for: {', '.join(summary['failed'])}")
+    bad = problems(summary)
+    if bad:
+        raise SystemExit(f"ingestion failed or wrote nothing for: {', '.join(bad)}")
 
 
 
