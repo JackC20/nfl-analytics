@@ -187,7 +187,7 @@ INGESTORS = {
     "pfr_advstats": ingest_pfr_advstats,
 }
 
-def main():
+def main() -> None:
     args = get_args()
     
     seasons_arg = args.get("SEASONS")

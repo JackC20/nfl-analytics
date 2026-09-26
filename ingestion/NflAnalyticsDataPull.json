@@ -23,7 +23,7 @@
   },
   "maxRetries" : 0,
   "allocatedCapacity" : 0,
-  "timeout" : 10,
+  "timeout" : 20,
   "maxCapacity" : 0.0625,
   "glueVersion" : "3.0",
   "executionClass" : "STANDARD",
