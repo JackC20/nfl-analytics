@@ -1,5 +1,5 @@
 """
-NFL raw ingestion — AWS Lambda function, also runnable locally.
+NFL raw ingestion, AWS Lambda function, also runnable locally.
 
 Pulls datasets via nflreadpy and lands them as raw parquet in S3.
 Script performs no transformations, meant to just grab raw data and place them within datalake

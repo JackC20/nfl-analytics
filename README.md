@@ -65,7 +65,7 @@ script billed at 1/16 DPU. It can't run the code. Python Shell is stuck on Pytho
 nflreadpy needs 3.10+. Pip reports the package as nonexistent rather than flagging a version
 conflict, so it took a while to see what was actually wrong.
 
-Glue Spark would have worked — Glue 6.0 runs Python 3.11, and the script needs no Spark
+Glue Spark would have worked since Glue 6.0 runs Python 3.11, however the script needs no Spark
 code. I skipped it because provisioning a 2-DPU Spark cluster to make ten HTTP calls and
 write 15MB is the wrong tool. The finished function runs in under two seconds.
 
@@ -191,10 +191,6 @@ genuinely different schemas, which is why bronze is eleven tables rather than si
 **Infrastructure is console-created, not code.** Everything above was built by hand in the
 AWS console, so it isn't reproducible or version controlled. Defining it in Terraform is the
 obvious next step.
-
-**Builds are manual.** The CodeBuild webhook failed to register because the service role was
-missing `codeconnections:UseConnection` on the GitHub connection. Adding that plus a
-`^ingestion/.*` path filter would make deploys automatic on push.
 
 **The schedule should be off in the offseason.** nflverse stops changing after February, and
 once the season rolls over the empty-result notifications start.
