@@ -72,7 +72,7 @@ bronze_table(
 
 bronze_table(
     "bronze.players", "players",
-     omment="Full player table, snapshotted per ingest_date. Not season-scoped.",
+    comment="Full player table, snapshotted per ingest_date. Not season-scoped.",
 )
 
 bronze_table(
@@ -96,5 +96,5 @@ for _stat in ["pass", "rush", "rec", "def"]:
     bronze_table(
         f"bronze.pfr_{_stat}",
         f"pfr_advstats/stat_type={_stat}",
-    comment=f"PFR advanced stats, {_stat}, weekly. 2018 to current.",
+        comment=f"PFR advanced stats, {_stat}, weekly. 2018 to current.",
     )
