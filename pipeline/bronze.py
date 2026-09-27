@@ -70,42 +70,31 @@ bronze_table(
     comment="Play-by-play, 1999 to current. 372 columns, stable across every season.",
 )
 
+bronze_table(
+    "bronze.players", "players",
+     omment="Full player table, snapshotted per ingest_date. Not season-scoped.",
+)
 
-# ---------------------------------------------------------------------------
-# Remaining sources — uncomment as each is verified
-# ---------------------------------------------------------------------------
-#
-# The stat-type variants are separate tables rather than one per source. They
-# are not the same shape: nextgen_stats is 29/23/22 columns across
-# passing/receiving/rushing with only 11 shared, and pfr_advstats is
-# 24/16/17/29 across pass/rush/rec/def with 9 shared. Unioning them would give
-# a wide, mostly-null table whose columns mean different things per row.
-#
-# bronze_table(
-#     "bronze.players", "players",
-#     comment="Full player table, snapshotted per ingest_date. Not season-scoped.",
-# )
-#
-# bronze_table(
-#     "bronze.teams", "teams",
-#     comment="Team reference data, snapshotted per ingest_date.",
-# )
-#
-# bronze_table(
-#     "bronze.participation", "participation",
-#     comment="On-field personnel per play, 2016 to current season minus one.",
-# )
-#
-# for _stat in ["passing", "receiving", "rushing"]:
-#     bronze_table(
-#         f"bronze.nextgen_{_stat}",
-#         f"nextgen_stats/stat_type={_stat}",
-#         comment=f"Next Gen Stats, {_stat}, weekly player level. 2016 to current.",
-#     )
-#
-# for _stat in ["pass", "rush", "rec", "def"]:
-#     bronze_table(
-#         f"bronze.pfr_{_stat}",
-#         f"pfr_advstats/stat_type={_stat}",
-#         comment=f"PFR advanced stats, {_stat}, weekly. 2018 to current.",
-#     )
+bronze_table(
+    "bronze.teams", "teams",
+    comment="Team reference data, snapshotted per ingest_date.",
+)
+
+bronze_table(
+    "bronze.participation", "participation",
+    comment="On-field personnel per play, 2016 to current season minus one.",
+)
+
+for _stat in ["passing", "receiving", "rushing"]:
+    bronze_table(
+        f"bronze.nextgen_{_stat}",
+        f"nextgen_stats/stat_type={_stat}",
+        comment=f"Next Gen Stats, {_stat}, weekly player level. 2016 to current.",
+    )
+
+for _stat in ["pass", "rush", "rec", "def"]:
+    bronze_table(
+        f"bronze.pfr_{_stat}",
+        f"pfr_advstats/stat_type={_stat}",
+    comment=f"PFR advanced stats, {_stat}, weekly. 2018 to current.",
+    )
