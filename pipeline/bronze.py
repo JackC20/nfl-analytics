@@ -65,7 +65,7 @@ def bronze_table(table_name: str, prefix: str, comment: str = "") -> None:
 # ---------------------------------------------------------------------------
 
 bronze_table(
-    "bronze_pbp",
+    "bronze.pbp",
     "pbp",
     comment="Play-by-play, 1999 to current. 372 columns, stable across every season.",
 )
@@ -82,30 +82,30 @@ bronze_table(
 # a wide, mostly-null table whose columns mean different things per row.
 #
 # bronze_table(
-#     "bronze_players", "players",
+#     "bronze.players", "players",
 #     comment="Full player table, snapshotted per ingest_date. Not season-scoped.",
 # )
 #
 # bronze_table(
-#     "bronze_teams", "teams",
+#     "bronze.teams", "teams",
 #     comment="Team reference data, snapshotted per ingest_date.",
 # )
 #
 # bronze_table(
-#     "bronze_participation", "participation",
+#     "bronze.participation", "participation",
 #     comment="On-field personnel per play, 2016 to current season minus one.",
 # )
 #
 # for _stat in ["passing", "receiving", "rushing"]:
 #     bronze_table(
-#         f"bronze_nextgen_{_stat}",
+#         f"bronze.nextgen_{_stat}",
 #         f"nextgen_stats/stat_type={_stat}",
 #         comment=f"Next Gen Stats, {_stat}, weekly player level. 2016 to current.",
 #     )
 #
 # for _stat in ["pass", "rush", "rec", "def"]:
 #     bronze_table(
-#         f"bronze_pfr_{_stat}",
+#         f"bronze.pfr_{_stat}",
 #         f"pfr_advstats/stat_type={_stat}",
 #         comment=f"PFR advanced stats, {_stat}, weekly. 2018 to current.",
 #     )
