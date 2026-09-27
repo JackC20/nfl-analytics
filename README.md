@@ -65,9 +65,9 @@ script billed at 1/16 DPU. It can't run the code. Python Shell is stuck on Pytho
 nflreadpy needs 3.10+. Pip reports the package as nonexistent rather than flagging a version
 conflict, so it took a while to see what was actually wrong.
 
-Glue Spark would have worked since Glue 6.0 runs Python 3.11, however the script needs no Spark
-code. I skipped it because provisioning a 2-DPU Spark cluster to make ten HTTP calls and
-write 15MB is the wrong tool. The finished function runs in under two seconds.
+Glue Spark would have worked with Glue 6.0, as it runs Python 3.11. However this job has no real need
+for the overhead that comes with spark code. I skipped it because provisioning a 2-DPU Spark
+cluster to make ten HTTP calls and write 15MB is the wrong tool. The finished function runs in under two seconds.
 
 ### Container instead of a zip
 
@@ -183,10 +183,8 @@ above that because Lambda scales CPU with memory and the cost difference is negl
 
 ## Known gaps
 
-**Schema drift**, measured in [`docs/schemas.md`](docs/schemas.md). `participation` gains six
-columns in 2023. `pbp` turns out to be stable at 372 columns across every season from 1999 on.
-The bigger surprise is that the stat-type variants of `nextgen_stats` and `pfr_advstats` have
-genuinely different schemas, which is why bronze is eleven tables rather than six.
+`pfr_advstats` have genuinely different schemas — passing, receiving and rushing share only
+11 of 29/23/22 columns — so each needs its own bronze table rather than a union.
 
 **Infrastructure is console-created, not code.** Everything above was built by hand in the
 AWS console, so it isn't reproducible or version controlled. Defining it in Terraform is the
