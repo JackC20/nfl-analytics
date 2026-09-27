@@ -22,15 +22,18 @@ BUCKET is required, everything else has a default:
                  updates once a year — ask for it by name or use "all".
 
 Layout written:
-    s3://<bucket>/<prefix>/<dataset>/season=YYYY/ingest_date=YYYY-MM-DD/<dataset>_<season>.parquet
-    s3://<bucket>/<prefix>/<dataset>/ingest_date=YYYY-MM-DD/<dataset>.parquet   (season-less datasets)
+    <prefix>/<dataset>/season=YYYY/ingest_date=YYYY-MM-DD/<dataset>_<season>.parquet
+    <prefix>/<dataset>/stat_type=X/season=YYYY/ingest_date=.../<dataset>_X_<season>.parquet
+    <prefix>/<dataset>/ingest_date=YYYY-MM-DD/<dataset>.parquet   (season-less datasets)
 
 Lambda caps a run at 15 minutes, so SEASONS=all does not fit there.
 Run the full backfill locally instead.
 
-The run fails — raising in Lambda, exiting non-zero locally — when a dataset
-errors OR when it was pulled and wrote zero rows. The second case matters:
-a source going quiet otherwise looks exactly like a healthy run.
+Failure semantics: only a dataset that raises fails the run. A dataset that
+was pulled and wrote zero rows is reported in the summary's "empty" list and
+logged as "EMPTY_DATASET <name> ...", which a CloudWatch metric filter can
+alarm on. That keeps "the job broke" and "a source went quiet, take a look"
+as separate signals, since the second is often legitimate.
 """
 
 import io
@@ -189,21 +192,31 @@ def write_parquet(df: Optional[pl.DataFrame], bucket: str, key: str) -> int:
     return df.height
 
 
-def build_key(prefix: str, dataset: str, ingest_date: str, season: Optional[int] = None, suffix: Optional[str] = None) -> str:
+def build_key(prefix: str, dataset: str, ingest_date: str, season: Optional[int] = None, stat_type: Optional[str] = None) -> str:
     """
+    Partition order: dataset / stat_type / season / ingest_date, coarsest first.
+
+    stat_type is a path partition rather than a filename suffix because the
+    variants are different schemas, not variations of one. nextgen_stats
+    passing/receiving/rushing share only 11 of 29/23/22 columns, and
+    pfr_advstats pass/rush/rec/def share 9. Each gets its own bronze table,
+    so each needs its own prefix to read from.
+
     Season before ingest_date so all snapshots of one season sit together,
     and Athena can prune by season when reading the raw files directly.
     """
     parts = [prefix, dataset]
 
+    if stat_type is not None:
+        parts.append(f"stat_type={stat_type}")
     if season is not None:
         parts.append(f"season={season}")
     parts.append(f"ingest_date={ingest_date}")
 
     name = dataset
 
-    if suffix:
-        name = f"{name}_{suffix}"
+    if stat_type:
+        name = f"{name}_{stat_type}"
     if season is not None:
         name = f"{name}_{season}"
 
@@ -247,7 +260,7 @@ def ingest_nextgen_stats(seasons_arg: Optional[str], bucket: str, prefix: str, i
     for season in resolve_seasons(seasons_arg, NGS_START):
         for stat_type in NGS_STAT_TYPES:
             df = nfl.load_nextgen_stats(seasons=[season], stat_type=stat_type)
-            key = build_key(prefix, "nextgen_stats", ingest_date, season, suffix=stat_type)
+            key = build_key(prefix, "nextgen_stats", ingest_date, season, stat_type=stat_type)
             attempts += 1
             rows += write_parquet(df, bucket, key)
     return attempts, rows
@@ -262,7 +275,7 @@ def ingest_pfr_advstats(seasons_arg: Optional[str], bucket: str, prefix: str, in
                 stat_type=stat_type,
                 summary_level="week",
             )
-            key = build_key(prefix, "pfr_advstats", ingest_date, season, suffix=stat_type)
+            key = build_key(prefix, "pfr_advstats", ingest_date, season, stat_type=stat_type)
             attempts += 1
             rows += write_parquet(df, bucket, key)
     return attempts, rows
@@ -339,9 +352,10 @@ def run(config: dict[str, str]) -> dict:
                 log.warning(f"nothing applicable to pull for {name}")
                 skipped.append(name)
             elif rows == 0:
-                # Succeeding while writing nothing is the failure mode that
-                # otherwise looks identical to a good run. Treat it as an error.
-                log.error(f"{name} returned no rows across {attempts} attempts")
+                # Not fatal — a source can legitimately be quiet — but it is
+                # worth a look, so it gets a tagged line a CloudWatch metric
+                # filter can alarm on independently of the run's success.
+                log.warning(f"EMPTY_DATASET {name} returned no rows across {attempts} attempts")
                 empty.append(name)
             else:
                 completed.append(name)
@@ -365,21 +379,19 @@ def run(config: dict[str, str]) -> dict:
     }
 
 
-def problems(summary: dict) -> list[str]:
-    """Datasets that should stop the run: errored, or wrote nothing at all."""
-    return summary["failed"] + summary["empty"]
-
-
 def handler(event, context) -> dict:
     """
     Lambda entry point. Raising on failure is deliberate: it marks the
     invocation failed, which is what reaches CloudWatch alarms and any DLQ.
+
+    Only a dataset that errored fails the run. A dataset that came back empty
+    is reported in the summary and logged with the EMPTY_DATASET tag, so it
+    can be alarmed on separately without marking the invocation failed.
     """
     summary = run(get_config(event or {}))
 
-    bad = problems(summary)
-    if bad:
-        raise RuntimeError(f"ingestion failed or wrote nothing for: {', '.join(bad)}")
+    if summary["failed"]:
+        raise RuntimeError(f"ingestion failed for: {', '.join(summary['failed'])}")
 
     return summary
 
@@ -387,9 +399,11 @@ def handler(event, context) -> dict:
 def main() -> None:
     summary = run(get_config())
 
-    bad = problems(summary)
-    if bad:
-        raise SystemExit(f"ingestion failed or wrote nothing for: {', '.join(bad)}")
+    if summary["empty"]:
+        log.warning(f"datasets that wrote nothing: {', '.join(summary['empty'])}")
+
+    if summary["failed"]:
+        raise SystemExit(f"ingestion failed for: {', '.join(summary['failed'])}")
 
 
 
