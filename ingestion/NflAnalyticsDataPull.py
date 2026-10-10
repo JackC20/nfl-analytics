@@ -4,6 +4,10 @@ NFL raw ingestion, AWS Lambda function, also runnable locally.
 Pulls datasets via nflreadpy and lands them as raw parquet in S3.
 Script performs no transformations, meant to just grab raw data and place them within datalake
 
+The one exception is KEY_TYPES: a handful of key columns are cast to a fixed
+type on the way in, because nflverse changes them across seasons and parquet
+stores the type per file. See the comment there.
+
 Entry points:
     handler(event, context)                        Lambda
     python NflAnalyticsDataPull.py --BUCKET ...    local
@@ -73,6 +77,7 @@ CONFIG_KEYS = ["BUCKET", "SEASONS", "RAW_PREFIX", "DATASETS"]
 
 # earliest season each sourcse has data for
 PBP_START = 1999
+SCHEDULES_START = 1999
 PARTICIPATION_START = 2016
 NGS_START = 2016
 PFR_START = 2018
@@ -227,6 +232,45 @@ def build_key(prefix: str, dataset: str, ingest_date: str, season: Optional[int]
 
 
 # -----------------------------
+# Key types                 ---
+# -----------------------------
+#
+# nflverse does not guarantee a column keeps its type across a source's
+# history. participation stores play_id as an integer through 2022 and as a
+# float from 2023 on. Parquet records the type per file, so the raw layer ends
+# up holding files that disagree, and Auto Loader rescues one side rather than
+# widening: 341,718 rows reached bronze with a null play_id and the real value
+# stranded in _rescued_data. Nothing errored.
+#
+# Bronze cannot fix a raw layer that contradicts itself, so key columns are
+# pinned here. Only keys — everything else stays exactly as the source sent it.
+
+KEY_TYPES: dict[str, dict[str, pl.DataType]] = {
+    "participation": {"play_id": pl.Int64},
+}
+
+
+def normalize_keys(df: Optional[pl.DataFrame], dataset: str) -> Optional[pl.DataFrame]:
+    """
+    Cast a dataset's key columns to their declared type.
+
+    A dataset with nothing declared, or a column the source did not send, is
+    passed through untouched.
+    """
+    if df is None:
+        return df
+
+    casts = [
+        pl.col(column).cast(dtype)
+        for column, dtype in KEY_TYPES.get(dataset, {}).items()
+        if column in df.columns
+    ]
+
+    return df.with_columns(casts) if casts else df
+
+
+
+# -----------------------------
 # Per dataset pulls         ---
 # Pull one season at a time ---
 # -----------------------------
@@ -246,10 +290,21 @@ def ingest_pbp(seasons_arg: Optional[str], bucket: str, prefix: str, ingest_date
     return attempts, rows
 
 
+def ingest_schedules(seasons_arg: Optional[str], bucket: str, prefix: str, ingest_date: str) -> tuple[int, int]:
+    # One row per game, including games not yet played, so the current season's
+    # full schedule lands before any of its plays exist.
+    attempts = rows = 0
+    for season in resolve_seasons(seasons_arg, SCHEDULES_START):
+        df = nfl.load_schedules(seasons=[season])
+        attempts += 1
+        rows += write_parquet(df, bucket, build_key(prefix, "schedules", ingest_date, season))
+    return attempts, rows
+
+
 def ingest_participation(seasons_arg: Optional[str], bucket: str, prefix: str, ingest_date: str) -> tuple[int, int]:
     attempts = rows = 0
     for season in resolve_seasons(seasons_arg, PARTICIPATION_START, end_offset=PARTICIPATION_LAG):
-        df = nfl.load_participation(seasons=[season])
+        df = normalize_keys(nfl.load_participation(seasons=[season]), "participation")
         attempts += 1
         rows += write_parquet(df, bucket, build_key(prefix, "participation", ingest_date, season))
     return attempts, rows
@@ -295,6 +350,7 @@ def ingest_teams(seasons_arg: Optional[str], bucket: str, prefix: str, ingest_da
 
 INGESTORS = {
     "pbp": ingest_pbp,
+    "schedules": ingest_schedules,
     "participation": ingest_participation,
     "players": ingest_players,
     "teams": ingest_teams,
