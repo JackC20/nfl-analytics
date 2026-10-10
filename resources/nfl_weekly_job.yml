@@ -1,0 +1,25 @@
+# Runs the pipeline Monday and Tuesday mornings, after the ingestion Lambda has
+# landed new files: Monday picks up Sunday's games, Tuesday picks up Monday night's.
+resources:
+  jobs:
+    nfl_weekly:
+      name: nfl-weekly
+
+      # Standard serverless mode: fewer DBUs, 4-6 minute startup. Fine for a scheduled batch.
+      performance_target: STANDARD
+
+      schedule:
+        # Quartz fields: sec min hour day-of-month month day-of-week.
+        # 07:00 Central, Mon and Tue; the Lambda runs at 06:15.
+        quartz_cron_expression: "0 0 7 ? * MON,TUE"
+        timezone_id: America/Chicago
+        pause_status: UNPAUSED
+
+      email_notifications:
+        on_failure:
+          - ${workspace.current_user.userName}
+
+      tasks:
+        - task_key: refresh_pipeline
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.nfl_pipeline.id}

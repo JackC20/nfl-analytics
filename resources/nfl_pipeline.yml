@@ -1,0 +1,21 @@
+# Bronze + silver Lakeflow pipeline. The code uses two-part names
+# (bronze.pbp, silver.plays), which resolve against this pipeline's catalog.
+resources:
+  pipelines:
+    nfl_pipeline:
+      name: nfl-pipeline
+      catalog: ${var.catalog}
+      schema: bronze          # default schema; the code names its schemas explicitly
+      serverless: true
+      continuous: false       # triggered: runs when the job starts it, then shuts down
+      development: false      # production mode refuses to deploy a development pipeline
+
+      configuration:
+        raw_path: ${var.raw_path}
+
+      # Listed explicitly, so older silver versions in the folder are never picked up.
+      libraries:
+        - file:
+            path: ../pipeline/bronze.py
+        - file:
+            path: ../pipeline/silver.py

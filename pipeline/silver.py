@@ -19,10 +19,10 @@ latest snapshot:
      superseded history; they stay in bronze and are not quarantined.
   2. Rank. row_number() over the table's key picks exactly one winner per key,
      so no silver table can hold a duplicate key.
-  3. Split. Winners are typed and go to the table. Losing copies of a
-     duplicated key, rows missing a key, and rows failing a rule go to the
-     table's quarantine, with the reason. Between the two, every row of the
-     latest snapshot is accounted for.
+  3. Split. Winners are typed, get any derived columns, and go to the table.
+     Losing copies of a duplicated key, rows missing a key, and rows failing a
+     rule go to the table's quarantine, with the reason. Between the two,
+     every row of the latest snapshot is accounted for.
 
 Because each season is rebuilt from its newest snapshot, a row nflverse removed
 (a deleted play) is not in that snapshot and drops out of silver. That is the
@@ -54,6 +54,8 @@ Bronze metadata handling:
     ingested_at   dropped - evaluated per micro-batch, so it does not order rows
     _rescued_data dropped - watched by bronze's nothing_rescued expectation
 """
+
+from collections.abc import Callable
 
 from pyspark import pipelines as dp
 from pyspark.sql import DataFrame
@@ -220,6 +222,27 @@ def read_source(bronze_table: str, blanks: list[str] | None = None) -> DataFrame
     return blank_to_null(df, blanks) if blanks else df
 
 
+def add_team_ids(df: DataFrame, columns: dict[str, str]) -> DataFrame:
+    """
+    Attach the franchise team_id for each team abbreviation column.
+
+    columns maps an abbreviation column to the id column to add, for example
+    {"posteam": "posteam_team_id"}. Left joins against silver.teams: a row
+    whose abbreviation has no match keeps its row with a null id, so a lookup
+    can never delete a play or a game. silver.teams has exactly one row per
+    team_abbr, so a lookup can never duplicate one either.
+    """
+    teams = spark.read.table("silver.teams")
+    for abbr_col, id_col in columns.items():
+        lookup_abbr = f"_{id_col}_abbr"
+        lookup = teams.select(col("team_abbr").alias(lookup_abbr), col("team_id").alias(id_col))
+        df = (
+            df.join(F.broadcast(lookup), col(abbr_col) == col(lookup_abbr), "left")
+            .drop(lookup_abbr)
+        )
+    return df
+
+
 # ---------------------------------------------------------------------------
 # Silver table factory
 # ---------------------------------------------------------------------------
@@ -234,9 +257,10 @@ def silver_table(
         blanks: list[str] | None = None,
         expect_all_or_drop: dict | None = None,
         expect_all: dict | None = None,
+        derive: Callable[[DataFrame], DataFrame] | None = None,
 ) -> None:
     """
-    Define one silver table and its quantine, both rebuilt on each run.
+    Define one silver table and its quarantine, both rebuilt on each run.
 
       <name>              materialized view: the winning row for each key
       <name>_quarantine   materialized view: every other row of the latest
@@ -244,6 +268,9 @@ def silver_table(
 
     snapshot_per names what one snapshot covers: ["season"] when each file is one season,
     [] when each file is the whole table
+
+    derive, if given, adds new columns to the typed winners. Only mechanical
+    derivations belong here; business definitions go in gold.
 
     A factory rather than one function per table, so each call gets its own closure and binds the right arguments
     """
@@ -256,16 +283,16 @@ def silver_table(
         """
         df = read_source(bronze_table, blanks)
 
-        # Newest ingest_date per snapshot per value. An aggregate plus join
+        # Newest ingest_date per snapshot_per value. An aggregate plus join
         # rather than a window: the aggregate shuffles two columns instead of
-        # every wide row bronze has accumulated, and then join keeps only the
-        # latest snapshot's rows. With snasphot per = [] the aggregate is one
+        # every wide row bronze has accumulated, and then the join keeps only the
+        # latest snapshot's rows. With snapshot_per = [] the aggregate is one
         # row: the newest ingest date overall
         latest = df.groupBy(*snapshot_per).agg(F.max(SEQUENCE_BY).alias(SEQUENCE_BY))
         df = df.join(F.broadcast(latest), on=[*snapshot_per, SEQUENCE_BY], how="inner")
 
-        # One winner per key. Copies within one snapshot share every columnexpect_all
-        # there is to order byu, and nothing says which copy is right, so the
+        # One winner per key. Copies within one snapshot share every column
+        # there is to order by, and nothing says which copy is right, so the
         # order only has to be deterministic: a hash of the whole row. The table
         # and its quarantine each compute this, and must agree on the winner
         window = Window.partitionBy(*keys).orderBy(F.xxhash64(*df.columns))
@@ -273,7 +300,8 @@ def silver_table(
 
     def winners() -> DataFrame:
         df = ranked().filter(f"key_rank = 1 AND {all_present(keys)}").drop("key_rank")
-        return apply_types(df, types)
+        df = apply_types(df, types)
+        return derive(df) if derive else df
 
     # Expectations wrap the function first, then the dataset decorator: the
     # same order as stacking @dp.expect_all under @dp.materialized_view.
@@ -334,7 +362,57 @@ PLAY_WARNINGS = {
         "home_wp_post IS NULL OR home_wp_post BETWEEN 0 AND 1",
     "away_wp_post_in_range":
         "away_wp_post IS NULL OR away_wp_post BETWEEN 0 AND 1",
+
+    # Measured on seven sampled seasons (1999, 2008, 2015, 2016, 2020, 2025,
+    # 2026; ~296k plays): down 1-4, yardline_100 1-99, ydstogo 0-50, and
+    # ydstogo is 0 only on plays with no down. The bounds are what is
+    # possible on a field, not just what was seen, so a real 3rd-and-52 does
+    # not warn.
+    "down_in_range":
+        "down IS NULL OR down BETWEEN 1 AND 4",
+    "yardline_100_in_range":
+        "yardline_100 IS NULL OR yardline_100 BETWEEN 1 AND 99",
+    "ydstogo_in_range":
+        "ydstogo IS NULL OR ydstogo BETWEEN 0 AND 99",
+    "scrimmage_play_has_distance":
+        "down IS NULL OR ydstogo >= 1",
+
+    # Counts any value derive_plays could not parse. Zero in the sample.
+    "game_date_parsed":
+        "game_date IS NOT NULL",
 }
+
+
+def derive_plays(df: DataFrame) -> DataFrame:
+    """
+    Mechanical columns for plays. Source columns are kept alongside, except
+    game_date, which is re-typed in place.
+
+      game_date                     'YYYY-MM-DD' text -> DATE
+      drive_time_of_possession_sec  'M:SS' text -> seconds, so it can be summed
+      *_team_id                     franchise id for each team column
+
+    try_cast returns null for anything unparseable, where a plain CAST under
+    ANSI mode would fail the whole update on one bad value. The *_parsed
+    warnings count any that slip through.
+
+    pbp writes today's abbreviation for every season (LA for the 1999 Rams),
+    while schedules writes the abbreviation of the era (STL). team_id is the
+    same franchise either way, so plays and games can join on it safely.
+    """
+    df = df.withColumns({
+        "game_date": F.expr("try_cast(game_date AS DATE)"),
+        "drive_time_of_possession_sec": F.expr(
+            "try_cast(split_part(drive_time_of_possession, ':', 1) AS INT) * 60"
+            " + try_cast(split_part(drive_time_of_possession, ':', 2) AS INT)"
+        ),
+    })
+    return add_team_ids(df, {
+        "posteam": "posteam_team_id",
+        "defteam": "defteam_team_id",
+        "home_team": "home_team_id",
+        "away_team": "away_team_id",
+    })
 
 
 silver_table(
@@ -346,6 +424,7 @@ silver_table(
     blanks=BLANK_AS_NULL["pbp"],
     expect_all_or_drop=PLAY_RULES,
     expect_all=PLAY_WARNINGS,
+    derive=derive_plays,
     comment="One row per play. Grain: game_id + play_id. Each season's newest snapshot.",
 )
 
@@ -398,13 +477,51 @@ silver_table(
 # out of plays. One row per game, including games not yet played: scores and
 # results are null until kickoff and fill in on a later snapshot.
 #
-# Only season and week are cast. The other columns have not been profiled the
-# way pbp's were, so they keep the types nflverse ships until they are.
+# Only season and week are cast, plus the derived columns below. The other
+# columns have not been profiled the way pbp's were, so they keep the types
+# nflverse ships until they are.
 
 GAME_RULES = {
     "season_in_range": "season BETWEEN 1999 AND 2100",
     "week_in_range": "week BETWEEN 1 AND 23",
 }
+
+# Count any value derive_games could not parse. 1999 has no gametime at all,
+# so only a gametime that is present but unparseable warns.
+GAME_WARNINGS = {
+    "gameday_parsed":
+        "gameday IS NOT NULL",
+    "kickoff_parsed":
+        "gametime IS NULL OR kickoff_ts IS NOT NULL",
+}
+
+
+def derive_games(df: DataFrame) -> DataFrame:
+    """
+    Mechanical columns for games.
+
+      kickoff_ts     gameday + gametime read as Eastern time, which is how
+                     nflverse writes gametime (checked against known kickoffs:
+                     the 2024 opener, BAL at KC, is 20:20). Stored as an
+                     absolute timestamp, correct across daylight saving.
+                     Null for 1999, which has no gametime.
+      gameday        'YYYY-MM-DD' text -> DATE, in place
+      *_team_id      franchise id for home_team and away_team
+
+    kickoff_ts is built from the text gameday, so it is computed before the
+    cast. Schedules uses the abbreviation of the era (STL, SD, OAK), so the
+    team ids are what line games up with plays across relocations.
+    """
+    df = df.withColumn(
+        "kickoff_ts",
+        F.expr(
+            "try_to_timestamp(concat_ws(' ', gameday, gametime, 'America/New_York'),"
+            " 'yyyy-MM-dd HH:mm VV')"
+        ),
+    )
+    df = df.withColumn("gameday", F.expr("try_cast(gameday AS DATE)"))
+    return add_team_ids(df, {"home_team": "home_team_id", "away_team": "away_team_id"})
+
 
 silver_table(
     name="silver.games",
@@ -413,5 +530,7 @@ silver_table(
     types=SEASON_WEEK,
     snapshot_per=["season"],        # each schedules file is one full season
     expect_all_or_drop=GAME_RULES,
+    expect_all=GAME_WARNINGS,
+    derive=derive_games,
     comment="One row per game, played or scheduled. Grain: game_id. Each season's newest snapshot.",
 )
