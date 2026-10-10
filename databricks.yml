@@ -1,0 +1,38 @@
+# Databricks side of the project: the bronze/silver pipeline and the job that
+# runs it daily. Ingestion (Lambda, S3, EventBridge) is deployed separately.
+bundle:
+  name: nfl-analytics
+
+include:
+  - resources/*.yml
+
+# Only the pipeline code needs to reach the workspace.
+sync:
+  exclude:
+    - ingestion/**
+    - tests/**
+
+variables:
+  catalog:
+    description: Unity Catalog catalog the pipeline publishes to.
+    default: nfl
+  raw_path:
+    description: S3 prefix the ingestion Lambda writes raw Parquet to.
+    default: s3://jackc-nfl-analytics-datalake/raw
+
+targets:
+  prod:
+    mode: production
+    default: true
+    workspace:
+      host: https://dbc-7615faa5-ea09.cloud.databricks.com/
+    # Production deploys come from main only. --force overrides for a one-off.
+    git:
+      branch: main
+    # Without a service principal, production mode requires both of these to
+    # be explicit. Swap run_as to a service_principal_name to go further.
+    run_as:
+      user_name: ${workspace.current_user.userName}
+    permissions:
+      - user_name: ${workspace.current_user.userName}
+        level: CAN_MANAGE

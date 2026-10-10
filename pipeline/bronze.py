@@ -38,6 +38,9 @@ def bronze_table(table_name: str, prefix: str, comment: str = "") -> None:
     """
 
     @dp.table(name=table_name, comment=comment)
+    # Warn-only: counts rows Auto Loader could not fit into the schema.
+    # Silver drops _rescued_data, so this is the one place a rescue shows up.
+    @dp.expect("nothing_rescued", "_rescued_data IS NULL")
     def _bronze() -> DataFrame:
         return (
             spark.readStream.format("cloudFiles")
@@ -68,6 +71,11 @@ bronze_table(
     "bronze.pbp",
     "pbp",
     comment="Play-by-play, 1999 to current. 372 columns, stable across every season.",
+)
+
+bronze_table(
+    "bronze.schedules", "schedules",
+    comment="One row per game, played or scheduled, 1999 to current. Snapshotted per ingest_date.",
 )
 
 bronze_table(
