@@ -1,11 +1,22 @@
 # NFL Analytics Pipeline
 
-Daily ingestion of NFL play-by-play and player data from [nflverse](https://github.com/nflverse)
-into an S3 data lake, a Databricks Lakeflow pipeline that models it into bronze, silver and gold
-tables, and a weekly job that turns gold into charts.
+An end-to-end data platform for NFL play-by-play data from [nflverse](https://github.com/nflverse),
+running daily on AWS and Databricks.
 
-Ingestion runs as a containerized Lambda, built in AWS, with alerting when it breaks. The
-Databricks side is deployed as an asset bundle from `main`.
+- **Ingestion:** a containerized Lambda lands seven nflverse datasets in an append-only S3 raw
+  layer every morning, with CloudWatch alarms when it breaks.
+- **Pipeline:** a Lakeflow pipeline in Unity Catalog takes about 1.3 million plays from 28
+  seasons (1999–2026) through bronze and silver, and models the current season as a gold star
+  schema.
+- **Delivery:** a weekly job refreshes the pipeline and renders nine charts from gold. The
+  Databricks side deploys as an asset bundle from `main`.
+
+<p>
+  <img src="docs/chart_qb_epa_cpoe.png" width="49%" alt="QB efficiency vs. accuracy: EPA per pass play against completion percentage above expected, one team logo per quarterback, split into four labeled quadrants.">
+  <img src="docs/chart_team_epa.png" width="49%" alt="Team efficiency: offensive EPA per play against defensive EPA allowed per play, one logo per team, split into four labeled quadrants.">
+</p>
+
+*Two of the nine weekly charts, 2026 regular season through Week 5.*
 
 **Stack:** Python 3.12, Polars, PySpark, Lambda, ECR, CodeBuild, S3, EventBridge, CloudWatch,
 SNS, Databricks (Lakeflow Declarative Pipelines, Unity Catalog, Asset Bundles, serverless jobs),
@@ -55,8 +66,7 @@ pipeline/         The Lakeflow pipeline: bronze.py, silver.py, gold.py
 charts/           scatter.py (any SQL query -> scatter chart), nfl_charts.py (the weekly set),
                   weekly_charts.py (the job's notebook), upload_logos.py, mailer.py
 resources/        Bundle resources: the pipeline, the weekly job, the logo volume
-tests/            Registration test for the silver module
-docs/             Diagrams used in this README
+docs/             Diagrams and sample charts used in this README
 databricks.yml    Bundle configuration
 buildspec.yml     CodeBuild instructions for the Lambda image
 ```
@@ -214,9 +224,9 @@ working downstream, since it skips files it has already consumed.
 
 ### The bucket comes from the environment
 
-`BUCKET` is an environment variable with no default in the code. That keeps the name out of a
-public repo, lets the same image run against different buckets, and fails immediately if it's
-missing instead of writing somewhere unintended.
+`BUCKET` is an environment variable with no default in the code. That lets the same image run
+against different buckets, and fails immediately if it's missing instead of writing somewhere
+unintended.
 
 An event payload overrides it, so a one-off run can target somewhere else without editing the
 function config.
@@ -400,9 +410,8 @@ slightly differently.
 
 **Gold covers 2026 only.** Adding a season to `GOLD_SEASONS` in `gold.py` backfills it.
 
-**Testing is thin.** There's a registration test for the silver module, but no data tests yet.
-The quarantine tables and the `nothing_rescued` expectation are the main checks on data
-quality.
+**No automated tests yet.** The quarantine tables and the `nothing_rescued` expectation are the
+main checks on data quality.
 
 ## Next
 
