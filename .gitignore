@@ -1,0 +1,12 @@
+# Databricks CLI bundle state
+.databricks/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+
+# Charts rendered on a laptop
+charts/output/
