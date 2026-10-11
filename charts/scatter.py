@@ -299,9 +299,13 @@ def place_labels(ax, points: np.ndarray, halves: np.ndarray, labels: list, obsta
         # A point stacked almost exactly on this one can't be told apart by
         # position anyway; judge against the rest, so the name doesn't drift
         # onto a neighbour.
-        apart = [boxes[j] for j in range(len(centers))
+        apart = [j for j in range(len(centers))
                  if j != i and np.hypot(*(centers[j] - centers[i])) > max(halves[i])]
-        if any(gap(box, b) <= own + 6 * pt for b in apart):
+        # Judged two ways: by the edges of the logos, and by their centres
+        # (logo art rarely fills its box, so the centres are where the eye goes).
+        to_own = gap(box, (*centers[i], *centers[i]))
+        if any(gap(box, boxes[j]) <= own + 6 * pt or gap(box, (*centers[j], *centers[j])) <= to_own + 4 * pt
+               for j in apart):
             total += 3000  # as close to another point as its own: misreading is the worst outcome
         if ring:
             ex, ey = edge_point(box, i)
