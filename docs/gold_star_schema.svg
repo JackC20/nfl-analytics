@@ -1,0 +1,160 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1032 662" width="1032" height="662" role="img" aria-label="Star schema: fact_play joins dim_game on game_id, dim_team twice (posteam and defteam) and dim_player three times (passer, rusher, receiver); dim_game joins dim_team on home and away team." xmlns:c2pa="http://c2pa.org/manifest"><metadata><c2pa:manifest>AAAWgmp1bWIAAAAeanVtZGMycGEAEQAQgAAAqgA4m3EDYzJwYQAAABZcanVtYgAAAEdqdW1kYzJtYQARABCAAACqADibcQN1cm46YzJwYTo2NGY4ZGM5NS0xZTdlLTRkMmUtYTI2ZS0wNDc0N2Q3M2QxMWEAAAADl2p1bWIAAAApanVtZGMyYXMAEQAQgAAAqgA4m3EDYzJwYS5hc3NlcnRpb25zAAAAALxqdW1iAAAARGp1bWRjYm9yABEAEIAAAKoAOJtxE2MycGEuaW5ncmVkaWVudC52MwAAAAAYYzJzaL+IbHg9SH3kT8ZwG3WVFVsAAABwY2JvcqNpZGM6Zm9ybWF0bWltYWdlL3N2Zyt4bWxqaW5zdGFuY2VJRHgseG1wOmlpZDpjZWVjNTVhMy1kNGJiLTQwMzEtYmE0Ny00YzdlNTk2ZDMwZDZscmVsYXRpb25zaGlwaHBhcmVudE9mAAAB4mp1bWIAAABBanVtZGNib3IAEQAQgAAAqgA4m3ETYzJwYS5hY3Rpb25zLnYyAAAAABhjMnNo2J/uOk7DBJF45SoH/K/OzgAAAZljYm9yomdhY3Rpb25zgqJmYWN0aW9ua2MycGEub3BlbmVkanBhcmFtZXRlcnOha2luZ3JlZGllbnRzgaJjdXJseC1zZWxmI2p1bWJmPWMycGEuYXNzZXJ0aW9ucy9jMnBhLmluZ3JlZGllbnQudjNkaGFzaFggb6GctoLHR/WWQdR4w82uehH8yiz0IjVbkSNmn5Vwg7OkZmFjdGlvbngdY29tLmFudGhyb3BpYy5jbGF1ZGUucHJvdmlkZWRqcGFyYW1ldGVyc6F4H2NvbS5hbnRocm9waWMub3JpZ2luLWNvbmZpZGVuY2VndW5rbm93bmtkZXNjcmlwdGlvbnhmQ2xhdWRlIHByb3ZpZGVkIHRoaXMgZmlsZSBhdCB0aGUgcmVxdWVzdCBvZiBhIHVzZXIgYW5kIG1heSBoYXZlIGNyZWF0ZWQgb3IgbW9kaWZpZWQgdGhlIGZpbGUgY29udGVudHMubXNvZnR3YXJlQWdlbnShZG5hbWVmQ2xhdWRlcmFsbEFjdGlvbnNJbmNsdWRlZPUAAADIanVtYgAAAEBqdW1kY2JvcgARABCAAACqADibcRNjMnBhLmhhc2guZGF0YQAAAAAYYzJzaPQQdVgbY9fok3vqJkG2exkAAACAY2JvcqVjYWxnZnNoYTI1NmNwYWRMAAAAAAAAAAAAAAAAZGhhc2hYIKdbe97QaVdQq0lvf6YbjzXUydg/SICJcghYNdEGVq/2ZG5hbWVuanVtYmYgbWFuaWZlc3RqZXhjbHVzaW9uc4GiZXN0YXJ0GQFtZmxlbmd0aBkeBAAAAj5qdW1iAAAAJ2p1bWRjMmNsABEAEIAAAKoAOJtxA2MycGEuY2xhaW0udjIAAAACD2Nib3KlY2FsZ2ZzaGEyNTZpc2lnbmF0dXJleE1zZWxmI2p1bWJmPS9jMnBhL3VybjpjMnBhOjY0ZjhkYzk1LTFlN2UtNGQyZS1hMjZlLTA0NzQ3ZDczZDExYS9jMnBhLnNpZ25hdHVyZWppbnN0YW5jZUlEeCx4bXA6aWlkOjkyMjg5MzdhLTUwMTgtNGE2Ny1iNjY4LTcyM2IwNWEyODdlN3JjcmVhdGVkX2Fzc2VydGlvbnODomN1cmx4LXNlbGYjanVtYmY9YzJwYS5hc3NlcnRpb25zL2MycGEuaW5ncmVkaWVudC52M2RoYXNoWCBvoZy2gsdH9ZZB1HjDza56EfzKLPQiNVuRI2aflXCDs6JjdXJseCpzZWxmI2p1bWJmPWMycGEuYXNzZXJ0aW9ucy9jMnBhLmFjdGlvbnMudjJkaGFzaFggk/POCUBC5FlxD6vZU8OeshRGsqtHuyEBX/3tDenKY6qiY3VybHgpc2VsZiNqdW1iZj1jMnBhLmFzc2VydGlvbnMvYzJwYS5oYXNoLmRhdGFkaGFzaFggGiXIbtLlCgvzW9ACpktC8bvCl6/1GhMMYgUVEUl9mQx0Y2xhaW1fZ2VuZXJhdG9yX2luZm+jZG5hbWVvQW50aHJvcGljIEZpbGVzZ3ZlcnNpb25lMS4wLjBrc3BlY1ZlcnNpb25lMi40LjAAABA4anVtYgAAAChqdW1kYzJjcwARABCAAACqADibcQNjMnBhLnNpZ25hdHVyZQAAABAIY2JvctKEWQISogEmGCFZAgowggIGMIIBjaADAgECAhRA5aAK7sI50L64g/oGQgU9Z1UTADAKBggqhkjOPQQDAzBJMRcwFQYDVQQKEw5BbnRocm9waWMsIFBCQzEuMCwGA1UEAxMlQW50aHJvcGljIENvbnRlbnQgQ3JlZGVudGlhbHMgUm9vdCBDQTAeFw0yNjA4MDcxODQzNTZaFw0yODA4MDYxOTQzNTZaMEQxFzAVBgNVBAoTDkFudGhyb3BpYywgUEJDMSkwJwYDVQQDEyBBbnRocm9waWMgQ2xhdWRlIENvbnRlbnQgU2lnbmluZzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABJh6CmvLUBgFFNU0vUKlOVtE6djd17L5SuwX0LemFisBM3dkd/3cyjxFA3Qo5S46fX0/ihY0VZ7mfb9KF703t5OjWDBWMA4GA1UdDwEB/wQEAwIHgDAVBgNVHSUEDjAMBgorBgEEAYPoXgIBMAwGA1UdEwEB/wQCMAAwHwYDVR0jBBgwFoAUzlHiBIFOZFsj+OPEz5o+nMHXXMIwCgYIKoZIzj0EAwMDZwAwZAIwMXMdFJ4BetLLVY7ORuE9noqbbAZOZn/aArXyTwFAZfKrPzxF2vPoJNf1+UCdg1XGAjBwX1zd9WGqYkqmL5SFqw1QySjr1zJfpJM9+1rdDwSPLMOPOjKuiXjoU/pUUeG9RwmhY3BhZFkNngAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPZYQJhWWNKAHWbzt4rfTqdvrvm0EBLbxhO2N8ywQfX1YYPQKLu/KvYtAIPaFbM8DXGk+DiMiZrxokiMtlS4qt55SiA=</c2pa:manifest></metadata><style>
+  .bg { fill: #ffffff; stroke: #d7ddd8; }
+  .ent .body { fill: #ffffff; stroke-width: 1.5; }
+  .ent.dim .body { stroke: #2c6a47; } .ent.dim .hdr, .ent.dim .hdr-fill { fill: #dcebe1; }
+  .ent.fact .body { stroke: #96690c; } .ent.fact .hdr, .ent.fact .hdr-fill { fill: #f3e8cc; }
+  .ent.agg .body { stroke: #39598c; } .ent.agg .hdr, .ent.agg .hdr-fill { fill: #dfe6f2; }
+  .hdr-fill { opacity: .55; }
+  text { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+  .t-name { font-size: 14px; font-weight: 700; fill: #17211c; }
+  .t-name.sm { font-size: 13px; } .t-name.xs { font-size: 10.5px; }
+  .t-grain, .t-note { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 12px; fill: #48544d; }
+  .t-note { fill: #75817a; } .t-grain.xs { font-size: 10.5px; }
+  .t-flag { font-size: 11px; font-weight: 700; fill: #96690c; }
+  .t-col { font-size: 11px; fill: #48544d; }
+  .t-col.more { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; font-style: italic; fill: #75817a; }
+  .t-col.flag { fill: #96690c; font-weight: 700; }
+  .t-key { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; fill: #75817a; }
+  .rowrule { stroke: #d7ddd8; stroke-width: 1; }
+  .rel { stroke: #8c978f; stroke-width: 1.4; fill: none; }
+  .flow { stroke: #8c978f; stroke-width: 1.6; fill: none; }
+  .arrowhead { fill: #8c978f; }
+  .t-rel { font-size: 11px; font-weight: 600; fill: #48544d; }
+</style><rect class="bg" x="0.5" y="0.5" width="1031" height="661" rx="8"/><g transform="translate(16,16)"><line class="rel" x1="290" y1="320.0" x2="375" y2="320.0"/>
+<line class="rel" x1="363" y1="320.0" x2="375" y2="313.0"/><line class="rel" x1="363" y1="320.0" x2="375" y2="320.0"/><line class="rel" x1="363" y1="320.0" x2="375" y2="327.0"/>
+<line class="rel" x1="297" y1="326.0" x2="297" y2="314.0"/>
+<text class="t-rel" x="332.5" y="314.0" text-anchor="middle">game_id</text>
+<line class="rel" x1="455" y1="204" x2="455" y2="268"/>
+<line class="rel" x1="455" y1="256" x2="462" y2="268"/><line class="rel" x1="455" y1="256" x2="455" y2="268"/><line class="rel" x1="455" y1="256" x2="448" y2="268"/>
+<line class="rel" x1="449" y1="211" x2="461" y2="211"/>
+<text class="t-rel" x="447" y="240.0" text-anchor="end">posteam_team_id</text>
+<line class="rel" x1="545" y1="204" x2="545" y2="268"/>
+<line class="rel" x1="545" y1="256" x2="552" y2="268"/><line class="rel" x1="545" y1="256" x2="545" y2="268"/><line class="rel" x1="545" y1="256" x2="538" y2="268"/>
+<line class="rel" x1="539" y1="211" x2="551" y2="211"/>
+<text class="t-rel" x="553" y="240.0" text-anchor="start">defteam_team_id</text>
+<polyline class="rel" points="110,268 110,92 375,92"/>
+<line class="rel" x1="110" y1="256" x2="117" y2="268"/><line class="rel" x1="110" y1="256" x2="110" y2="268"/><line class="rel" x1="110" y1="256" x2="103" y2="268"/>
+<line class="rel" x1="368" y1="86" x2="368" y2="98"/>
+<text class="t-rel" x="122" y="86">home_team_id</text>
+<polyline class="rel" points="170,268 170,132 375,132"/>
+<line class="rel" x1="170" y1="256" x2="177" y2="268"/><line class="rel" x1="170" y1="256" x2="170" y2="268"/><line class="rel" x1="170" y1="256" x2="163" y2="268"/>
+<line class="rel" x1="368" y1="126" x2="368" y2="138"/>
+<text class="t-rel" x="182" y="126">away_team_id</text>
+<line class="rel" x1="625" y1="420.0" x2="730" y2="440.0"/>
+<line class="rel" x1="636.7880627970696" y1="422.24534529467996" x2="623.69021524477" y2="426.87636996495735"/><line class="rel" x1="636.7880627970696" y1="422.24534529467996" x2="625.0" y2="420.0"/><line class="rel" x1="636.7880627970696" y1="422.24534529467996" x2="626.30978475523" y2="413.12363003504265"/>
+<line class="rel" x1="625" y1="440.0" x2="730" y2="440.0"/>
+<line class="rel" x1="637.0" y1="440.0" x2="625.0" y2="447.0"/><line class="rel" x1="637.0" y1="440.0" x2="625.0" y2="440.0"/><line class="rel" x1="637.0" y1="440.0" x2="625.0" y2="433.0"/>
+<line class="rel" x1="625" y1="460.0" x2="730" y2="440.0"/>
+<line class="rel" x1="636.7880627970696" y1="457.75465470532004" x2="626.30978475523" y2="466.87636996495735"/><line class="rel" x1="636.7880627970696" y1="457.75465470532004" x2="625.0" y2="460.0"/><line class="rel" x1="636.7880627970696" y1="457.75465470532004" x2="623.69021524477" y2="453.12363003504265"/>
+<line class="rel" x1="723" y1="434.0" x2="723" y2="446.0"/>
+<text class="t-rel" x="677.5" y="408.0" text-anchor="middle">3 roles</text>
+<g class="ent dim">
+<rect class="body" x="375" y="16" width="250" height="188" rx="4"/>
+<path class="hdr" d="M379,16 h242 a4,4 0 0 1 4,4 v38 h-250 v-38 a4,4 0 0 1 4,-4 z"/>
+<text class="t-name" x="387" y="35">dim_team</text>
+<text class="t-grain" x="387" y="50">1 row per franchise</text>
+<text class="t-col " x="387" y="72">team_id</text>
+<text class="t-key" x="615" y="72" text-anchor="end">PK</text>
+<line class="rowrule" x1="383" y1="78" x2="617" y2="78"/>
+<text class="t-col " x="387" y="92">team_abbr</text>
+<line class="rowrule" x1="383" y1="98" x2="617" y2="98"/>
+<text class="t-col " x="387" y="112">team_name · team_nick</text>
+<line class="rowrule" x1="383" y1="118" x2="617" y2="118"/>
+<text class="t-col " x="387" y="132">team_conf · team_division</text>
+<line class="rowrule" x1="383" y1="138" x2="617" y2="138"/>
+<text class="t-col " x="387" y="152">team_color · team_color2</text>
+<line class="rowrule" x1="383" y1="158" x2="617" y2="158"/>
+<text class="t-col " x="387" y="172">team_logo_espn</text>
+<line class="rowrule" x1="383" y1="178" x2="617" y2="178"/>
+<text class="t-col more" x="387" y="192">+ 2 more: logo variants</text>
+</g>
+<g class="ent dim">
+<rect class="body" x="20" y="268" width="270" height="208" rx="4"/>
+<path class="hdr" d="M24,268 h262 a4,4 0 0 1 4,4 v38 h-270 v-38 a4,4 0 0 1 4,-4 z"/>
+<text class="t-name" x="32" y="287">dim_game</text>
+<text class="t-grain" x="32" y="302">1 row per 2026 game, played or scheduled</text>
+<text class="t-col " x="32" y="324">game_id</text>
+<text class="t-key" x="280" y="324" text-anchor="end">PK</text>
+<line class="rowrule" x1="28" y1="330" x2="282" y2="330"/>
+<text class="t-col " x="32" y="344">season · game_type · week</text>
+<line class="rowrule" x1="28" y1="350" x2="282" y2="350"/>
+<text class="t-col " x="32" y="364">gameday · kickoff_ts</text>
+<line class="rowrule" x1="28" y1="370" x2="282" y2="370"/>
+<text class="t-col " x="32" y="384">home_team_id</text>
+<text class="t-key" x="280" y="384" text-anchor="end">FK</text>
+<line class="rowrule" x1="28" y1="390" x2="282" y2="390"/>
+<text class="t-col " x="32" y="404">away_team_id</text>
+<text class="t-key" x="280" y="404" text-anchor="end">FK</text>
+<line class="rowrule" x1="28" y1="410" x2="282" y2="410"/>
+<text class="t-col " x="32" y="424">home_score · away_score</text>
+<line class="rowrule" x1="28" y1="430" x2="282" y2="430"/>
+<text class="t-col " x="32" y="444">is_completed</text>
+<line class="rowrule" x1="28" y1="450" x2="282" y2="450"/>
+<text class="t-col more" x="32" y="464">+ 20 more: venue, weather, lines</text>
+</g>
+<g class="ent fact">
+<rect class="body" x="375" y="268" width="250" height="348" rx="4"/>
+<path class="hdr" d="M379,268 h242 a4,4 0 0 1 4,4 v38 h-250 v-38 a4,4 0 0 1 4,-4 z"/>
+<text class="t-name" x="387" y="287">fact_play</text>
+<text class="t-grain" x="387" y="302">1 row per play</text>
+<text class="t-col " x="387" y="324">game_id</text>
+<text class="t-key" x="615" y="324" text-anchor="end">PK FK</text>
+<line class="rowrule" x1="383" y1="330" x2="617" y2="330"/>
+<text class="t-col " x="387" y="344">play_id</text>
+<text class="t-key" x="615" y="344" text-anchor="end">PK</text>
+<line class="rowrule" x1="383" y1="350" x2="617" y2="350"/>
+<text class="t-col " x="387" y="364">season · season_type · week</text>
+<line class="rowrule" x1="383" y1="370" x2="617" y2="370"/>
+<text class="t-col " x="387" y="384">posteam_team_id</text>
+<text class="t-key" x="615" y="384" text-anchor="end">FK</text>
+<line class="rowrule" x1="383" y1="390" x2="617" y2="390"/>
+<text class="t-col " x="387" y="404">defteam_team_id</text>
+<text class="t-key" x="615" y="404" text-anchor="end">FK</text>
+<line class="rowrule" x1="383" y1="410" x2="617" y2="410"/>
+<text class="t-col " x="387" y="424">passer_player_id</text>
+<text class="t-key" x="615" y="424" text-anchor="end">FK</text>
+<line class="rowrule" x1="383" y1="430" x2="617" y2="430"/>
+<text class="t-col " x="387" y="444">rusher_player_id</text>
+<text class="t-key" x="615" y="444" text-anchor="end">FK</text>
+<line class="rowrule" x1="383" y1="450" x2="617" y2="450"/>
+<text class="t-col " x="387" y="464">receiver_player_id</text>
+<text class="t-key" x="615" y="464" text-anchor="end">FK</text>
+<line class="rowrule" x1="383" y1="470" x2="617" y2="470"/>
+<text class="t-col " x="387" y="484">play_type · down · ydstogo</text>
+<line class="rowrule" x1="383" y1="490" x2="617" y2="490"/>
+<text class="t-col " x="387" y="504">yardline_100 · yards_gained</text>
+<line class="rowrule" x1="383" y1="510" x2="617" y2="510"/>
+<text class="t-col " x="387" y="524">epa · success · cpoe</text>
+<line class="rowrule" x1="383" y1="530" x2="617" y2="530"/>
+<text class="t-col " x="387" y="544">comp_air_epa · comp_yac_epa</text>
+<line class="rowrule" x1="383" y1="550" x2="617" y2="550"/>
+<text class="t-col flag" x="387" y="564">is_scrimmage_play</text>
+<line class="rowrule" x1="383" y1="570" x2="617" y2="570"/>
+<text class="t-col flag" x="387" y="584">is_explosive</text>
+<line class="rowrule" x1="383" y1="590" x2="617" y2="590"/>
+<text class="t-col more" x="387" y="604">+ ~370 more play-by-play columns</text>
+</g>
+<g class="ent dim">
+<rect class="body" x="730" y="388.0" width="250" height="228" rx="4"/>
+<path class="hdr" d="M734,388.0 h242 a4,4 0 0 1 4,4 v38 h-250 v-38 a4,4 0 0 1 4,-4 z"/>
+<text class="t-name" x="742" y="407.0">dim_player</text>
+<text class="t-grain" x="742" y="422.0">1 row per player (gsis_id)</text>
+<text class="t-col " x="742" y="444.0">player_id</text>
+<text class="t-key" x="970" y="444.0" text-anchor="end">PK</text>
+<line class="rowrule" x1="738" y1="450.0" x2="972" y2="450.0"/>
+<text class="t-col " x="742" y="464.0">player_name</text>
+<line class="rowrule" x1="738" y1="470.0" x2="972" y2="470.0"/>
+<text class="t-col " x="742" y="484.0">position · position_group</text>
+<line class="rowrule" x1="738" y1="490.0" x2="972" y2="490.0"/>
+<text class="t-col " x="742" y="504.0">latest_team_abbr</text>
+<line class="rowrule" x1="738" y1="510.0" x2="972" y2="510.0"/>
+<text class="t-col " x="742" y="524.0">jersey_number</text>
+<line class="rowrule" x1="738" y1="530.0" x2="972" y2="530.0"/>
+<text class="t-col " x="742" y="544.0">headshot_url</text>
+<line class="rowrule" x1="738" y1="550.0" x2="972" y2="550.0"/>
+<text class="t-col " x="742" y="564.0">draft_year · draft_round</text>
+<line class="rowrule" x1="738" y1="570.0" x2="972" y2="570.0"/>
+<text class="t-col " x="742" y="584.0">draft_pick · draft_team</text>
+<line class="rowrule" x1="738" y1="590.0" x2="972" y2="590.0"/>
+<text class="t-col more" x="742" y="604.0">+ 9 more: bio, college, status</text>
+</g></g></svg>
