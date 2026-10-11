@@ -4,7 +4,7 @@ the points.
 
     python charts/nfl_charts.py                       # all five
     python charts/nfl_charts.py --chart team_epa      # just one
-    python charts/nfl_charts.py --min-plays 150       # stricter QB cutoff
+    python charts/nfl_charts.py --min-plays 100       # stricter QB cutoff
     python charts/nfl_charts.py --email-to you@gmail.com   # render, then email them
 
 On your laptop, PNGs land in charts/output/ and the connection settings are
@@ -58,41 +58,57 @@ FROM nfl.gold.dim_game
 WHERE season = {season} AND game_type = 'REG' AND is_completed
 """
 
-OFF_EPA = "Offensive EPA per play"
-OFF_SR = "Offensive success rate"
-DEF_EPA_UP = "Defensive EPA per play allowed (axis flipped: up is better)"
-DEF_EPA_RIGHT = "Defensive EPA per play allowed (axis flipped: right is better)"
-DEF_SR_UP = "Defensive success rate allowed (axis flipped: up is better)"
+# Plain-language wording: these charts are meant to be shared with people who
+# don't follow advanced stats, so axis labels and captions define every term.
+FLIPPED_UP = "(flipped: up is better)"
+FLIPPED_RIGHT = "(flipped: right is better)"
+EPA_MEANS = ("EPA (expected points added): how many points a play adds, on average, "
+             "compared with what was expected before the snap")
+SUCCESS_MEANS = "Success rate: share of plays that improved the offense's chances of scoring"
+CPOE_MEANS = "CPOE: how much more often a QB completes passes than expected, given how hard the throws were"
+SOURCE = "Data: nflverse"
+
+# Quadrant labels, as drawn: (top left, top right, bottom left, bottom right).
+EFFICIENT_CONSISTENT = ("Consistent, but inefficient", "Efficient and consistent",
+                        "Inefficient and inconsistent", "Efficient, but inconsistent")
 
 
 def charts(min_plays: int, through: str) -> dict[str, tuple[str, ScatterSpec]]:
     """Each chart's query and layout. Keyed by the name used with --chart."""
     team_sql = TEAM_SQL.format(season=SEASON)
-    team_caption = "Data: nflverse play-by-play via nfl.gold.agg_team_season. Scrimmage plays only; dashed lines are the league average."
+    season = f"{SEASON} regular season {through}".strip()
     # Team charts: the logo is the label. Abbreviations appear only for a team
     # whose logo couldn't be fetched.
-    team = dict(label="team_abbr", image="team_logo_espn", label_images=False, caption=team_caption)
+    team = dict(label="team_abbr", image="team_logo_espn", label_images=False)
     return {
         "qb_epa_cpoe": (
             QB_SQL.format(season=SEASON, min_plays=min_plays),
             ScatterSpec(
                 x="cpoe", y="passing_epa_per_play", label="player_name",
-                image="team_logo_espn", image_size=22,  # smaller: the name is the main label here
-                title="QB efficiency: EPA per pass play vs CPOE",
-                subtitle=f"{SEASON} regular season {through} - QBs with {min_plays}+ pass plays (attempts + sacks). Top right is best.",
-                x_label="CPOE: completion % over expected (percentage points)",
+                # Smaller logos and names: with a low cutoff this chart has 40+ QBs.
+                image="team_logo_espn", image_size=18, label_size=8.5,
+                on_top="pass_plays",  # where logos stack, the QB with more plays stays visible
+                title="QB efficiency vs. accuracy",
+                subtitle=f"{season}. QBs with {min_plays}+ pass plays. Top right is best.",
+                x_label="Completion % above expected (CPOE)",
                 y_label="EPA per pass play",
                 x_format="signed",
-                caption="Data: nflverse play-by-play via nfl.gold.agg_qb_season. Scrambles count as rushes, as nflverse credits them. Dashed lines: average of plotted QBs.",
+                quadrants=("Efficient, but inaccurate", "Efficient and accurate",
+                           "Inefficient and inaccurate", "Accurate, but inefficient"),
+                caption=f"{EPA_MEANS}.\n{CPOE_MEANS}.\n{SOURCE}",
             ),
         ),
         "team_epa": (
             team_sql,
             ScatterSpec(
                 x="off_epa_per_play", y="def_epa_per_play",
-                title="Team efficiency: offense vs defense (EPA per play)",
-                subtitle=f"{SEASON} regular season {through}. Top right is best.",
-                x_label=OFF_EPA, y_label=DEF_EPA_UP, invert_y=True,
+                title="Team efficiency: offense vs. defense",
+                subtitle=f"{season}. Top right is best.",
+                x_label="Offense: EPA per play", y_label=f"Defense: EPA allowed per play {FLIPPED_UP}",
+                invert_y=True,
+                quadrants=("Efficient defense only", "Efficient on both sides",
+                           "Inefficient on both sides", "Efficient offense only"),
+                caption=f"{EPA_MEANS}.\n{SOURCE}",
                 **team,
             ),
         ),
@@ -100,10 +116,13 @@ def charts(min_plays: int, through: str) -> dict[str, tuple[str, ScatterSpec]]:
             team_sql,
             ScatterSpec(
                 x="off_success_rate", y="def_success_rate",
-                title="Team consistency: offensive vs defensive success rate",
-                subtitle=f"{SEASON} regular season {through}. A play is a success when its EPA is positive. Top right is best.",
-                x_label=OFF_SR, y_label=DEF_SR_UP, invert_y=True,
-                x_format="percent", y_format="percent",
+                title="Team consistency: offense vs. defense",
+                subtitle=f"{season}. Top right is best.",
+                x_label="Offense: success rate", y_label=f"Defense: success rate allowed {FLIPPED_UP}",
+                invert_y=True, x_format="percent", y_format="percent",
+                quadrants=("Consistent defense only", "Consistent on both sides",
+                           "Inconsistent on both sides", "Consistent offense only"),
+                caption=f"{SUCCESS_MEANS}.\n{SOURCE}",
                 **team,
             ),
         ),
@@ -111,9 +130,11 @@ def charts(min_plays: int, through: str) -> dict[str, tuple[str, ScatterSpec]]:
             team_sql,
             ScatterSpec(
                 x="off_epa_per_play", y="off_success_rate",
-                title="Offense: EPA per play vs success rate",
-                subtitle=f"{SEASON} regular season {through}. Right of the line: more explosive; above it: more consistent.",
-                x_label=OFF_EPA, y_label=OFF_SR, y_format="percent",
+                title="Offense: efficiency vs. consistency",
+                subtitle=f"{season}. Top right is best.",
+                x_label="EPA per play", y_label="Success rate", y_format="percent",
+                quadrants=EFFICIENT_CONSISTENT,
+                caption=f"{EPA_MEANS}.\n{SUCCESS_MEANS}.\n{SOURCE}",
                 **team,
             ),
         ),
@@ -121,10 +142,13 @@ def charts(min_plays: int, through: str) -> dict[str, tuple[str, ScatterSpec]]:
             team_sql,
             ScatterSpec(
                 x="def_epa_per_play", y="def_success_rate",
-                title="Defense: EPA per play vs success rate allowed",
-                subtitle=f"{SEASON} regular season {through}. Both axes flipped so top right is best.",
-                x_label=DEF_EPA_RIGHT, y_label=DEF_SR_UP,
+                title="Defense: efficiency vs. consistency",
+                subtitle=f"{season}. Top right is best.",
+                x_label=f"EPA allowed per play {FLIPPED_RIGHT}",
+                y_label=f"Success rate allowed {FLIPPED_UP}",
                 invert_x=True, invert_y=True, y_format="percent",
+                quadrants=EFFICIENT_CONSISTENT,
+                caption=f"{EPA_MEANS}.\n{SUCCESS_MEANS}.\n{SOURCE}",
                 **team,
             ),
         ),
@@ -134,7 +158,7 @@ def charts(min_plays: int, through: str) -> dict[str, tuple[str, ScatterSpec]]:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Render the 2026 efficiency scatters.")
     parser.add_argument("--chart", help="render only this chart (default: all)")
-    parser.add_argument("--min-plays", type=int, default=100, help="QB chart cutoff, pass plays (default 100)")
+    parser.add_argument("--min-plays", type=int, default=30, help="QB chart cutoff, pass plays (default 30)")
     parser.add_argument("--email-to", help="Gmail address to email the charts to (and send from)")
     parser.add_argument("--profile", help="Databricks CLI profile (default: $DATABRICKS_CONFIG_PROFILE)")
     parser.add_argument("--warehouse-id", help="SQL warehouse ID (default: $DATABRICKS_WAREHOUSE_ID)")

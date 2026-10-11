@@ -18,7 +18,8 @@ Where the query runs:
 Points are drawn as images when --image names a column of image URLs (team
 logos), otherwise as dots. Text labels are optional; a point whose image
 can't be fetched falls back to a dot with its label, so it is never anonymous.
-Dashed lines mark the average of the plotted points.
+Dashed lines mark the average of the plotted points; --quadrants labels the
+four areas they divide the chart into.
 """
 
 from __future__ import annotations
@@ -71,6 +72,8 @@ class ScatterSpec:
     image: str | None = None    # column of image URLs to draw as the points
     image_size: float = IMAGE_PT  # points; smaller suits charts that also label every point
     label_images: bool = True   # False: label only the points drawn as dots
+    label_size: float = 9       # point-label font size; smaller suits crowded charts
+    on_top: str | None = None   # column; where points stack, larger values are drawn on top
     title: str = ""
     subtitle: str = ""
     x_label: str | None = None
@@ -80,6 +83,9 @@ class ScatterSpec:
     x_format: str = "number"    # "number", "percent" (0-1 values) or "signed"
     y_format: str = "number"
     mean_lines: bool = True
+    # One label per quadrant around the average lines, as the chart is drawn
+    # (after any axis flips): (top left, top right, bottom left, bottom right).
+    quadrants: tuple[str, str, str, str] | None = None
     caption: str = ""
     figsize: tuple[float, float] = FIGSIZE
 
@@ -175,16 +181,75 @@ def _formatter(kind: str):
 # (a name to the left of its logo reads as belonging to whatever is left of
 # it), then the four corners, each at growing distances (points) from the point.
 _DIRECTIONS = [(1, 0), (0, 1), (0, -1), (-1, 0), (1, 1), (1, -1), (-1, 1), (-1, -1)]
-_DISTANCES = [3, 12, 22, 34, 48, 64]
+_DISTANCES = [3, 10, 18, 28, 40, 54, 70, 90]
 
 
-def place_labels(ax, points: np.ndarray, halves: np.ndarray, labels: list) -> None:
+def _point_boxes(ax, points: np.ndarray, halves: np.ndarray) -> tuple[np.ndarray, list]:
+    """Each point's center and bounding box in pixels."""
+    centers = ax.transData.transform(points)
+    boxes = [(cx - hw - 1, cy - hh - 1, cx + hw + 1, cy + hh + 1) for (cx, cy), (hw, hh) in zip(centers, halves)]
+    return centers, boxes
+
+
+def place_quadrant_labels(ax, quadrants, mean_xy, points: np.ndarray, halves: np.ndarray) -> list:
+    """Label each quadrant formed by the average lines, in its outer corner.
+
+    If a point sits in that corner, the label slides along the quadrant's edges
+    to the nearest spot that covers no point. Returns the labels' pixel boxes
+    so point labels can steer around them.
+    """
+    renderer = ax.figure.canvas.get_renderer()
+    plot = ax.get_window_extent(renderer)
+    mx, my = ax.transData.transform(mean_xy)
+    _, boxes = _point_boxes(ax, points, halves)
+    pad, step = 8, 10
+    placed = []
+    regions = [  # (x0, y0, x1, y1, corner is on the right, corner is at the top)
+        (plot.x0, my, mx, plot.y1, False, True), (mx, my, plot.x1, plot.y1, True, True),
+        (plot.x0, plot.y0, mx, my, False, False), (mx, plot.y0, plot.x1, my, True, False),
+    ]
+    for text, (rx0, ry0, rx1, ry1, right, top) in zip(quadrants, regions):
+        if not text:
+            continue
+        label = ax.text(0, 0, text, fontsize=9.5, fontweight="bold", color=INK_MUTED, zorder=4,
+                        ha="left", va="bottom")
+        extent = label.get_window_extent(renderer)
+        w, h = extent.width, extent.height
+        # Corner first, then spots stepping in from it along both edges.
+        room_x = max(0.0, (rx1 - rx0) - w - 2 * pad)
+        room_y = max(0.0, (ry1 - ry0) - h - 2 * pad)
+        candidates = []
+        for dx in np.arange(0, room_x + 1, step):
+            for dy in np.arange(0, room_y + 1, step):
+                x0 = (rx1 - pad - w - dx) if right else (rx0 + pad + dx)
+                y0 = (ry1 - pad - h - dy) if top else (ry0 + pad + dy)
+                candidates.append((dx + dy, x0, y0))
+        candidates.sort(key=lambda c: c[0])
+
+        def covered(x0, y0):
+            return sum(max(0, min(x0 + w, b[2]) - max(x0, b[0])) * max(0, min(y0 + h, b[3]) - max(y0, b[1]))
+                       for b in boxes + placed)
+
+        # The nearest spot covering nothing; failing that, the one covering least.
+        best = next(((x0, y0) for _, x0, y0 in candidates if covered(x0, y0) == 0), None)
+        if best is None:
+            best = min(((x0, y0) for _, x0, y0 in candidates), key=lambda c: covered(*c))
+        x0, y0 = best
+        label.set_position(ax.transData.inverted().transform((x0, y0)))
+        placed.append((x0 - 2, y0 - 2, x0 + w + 2, y0 + h + 2))
+    return placed
+
+
+def place_labels(ax, points: np.ndarray, halves: np.ndarray, labels: list, obstacles: list = ()) -> None:
     """Put each label beside its point without covering any point or another label.
 
     points: data x, y of every point. halves: each point's half width and height
-    in pixels. labels: (point index, Text) pairs. Each label takes the first
+    in pixels. labels: (point index, Text) pairs. obstacles: other pixel boxes
+    to keep clear of, such as the quadrant labels. Each label takes the first
     free spot, nearest first; one that lands away from its point gets a thin
-    leader line. Deterministic, so the same data always lays out the same way.
+    leader line, placed so leader lines avoid crossing each other or running
+    through other points and names.
+    Deterministic, so the same data always lays out the same way.
     """
     renderer = ax.figure.canvas.get_renderer()
     pt = DPI / 72  # pixels per point
@@ -193,8 +258,8 @@ def place_labels(ax, points: np.ndarray, halves: np.ndarray, labels: list) -> No
     # margin on the right, so a point at the right edge can still be labelled
     # on its right.
     area = (plot.x0, plot.y0, ax.figure.bbox.x1 - 4, plot.y1)
-    centers = ax.transData.transform(points)
-    boxes = [(cx - hw - 1, cy - hh - 1, cx + hw + 1, cy + hh + 1) for (cx, cy), (hw, hh) in zip(centers, halves)]
+    centers, boxes = _point_boxes(ax, points, halves)
+    boxes += list(obstacles)  # after the points, so boxes[:len(centers)] are still just points
 
     def free(box) -> bool:
         x0, y0, x1, y1 = box
@@ -211,50 +276,70 @@ def place_labels(ax, points: np.ndarray, halves: np.ndarray, labels: list) -> No
         # Where a leader line leaves the label: its edge nearest the point.
         return min(max(centers[i][0], box[0]), box[2]), min(max(centers[i][1], box[1]), box[3])
 
-    def unambiguous(box, i, ring) -> bool:
-        # Closer to its own point than to any other, so it can't be misread...
+    segments = []  # leader lines drawn so far, in pixels
+
+    def crosses(a, b) -> bool:
+        # Do segments a and b intersect? (standard orientation test)
+        def turn(p, q, r):
+            return (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])
+        p1, p2, q1, q2 = a[:2], a[2:], b[:2], b[2:]
+        return turn(p1, p2, q1) * turn(p1, p2, q2) < 0 and turn(q1, q2, p1) * turn(q1, q2, p2) < 0
+
+    def runs_through(segment, box) -> bool:
+        return any(box[0] <= x <= box[2] and box[1] <= y <= box[3]
+                   for x, y in zip(np.linspace(segment[0], segment[2], 24), np.linspace(segment[1], segment[3], 24)))
+
+    def cost(box, i, ring, order) -> float | None:
+        """None if the spot is unusable; otherwise lower is better."""
+        if not free(box) or any(runs_through(seg, box) for seg in segments):
+            return None  # covers something, or sits on a leader line
+        others = [b for j, b in enumerate(boxes[: len(centers)]) if j != i]
         own = gap(box, boxes[i])
-        points = [b for j, b in enumerate(boxes[: len(centers)]) if j != i]
-        if any(gap(box, b) <= own + 6 * pt for b in points):
-            return False
-        if ring == 0:
-            return True
-        # ...and a leader line that doesn't pass over another point.
-        (ex, ey), (cx, cy) = edge_point(box, i), centers[i]
-        samples = [(ex + (cx - ex) * t, ey + (cy - ey) * t) for t in np.linspace(0, 1, 24)]
-        return not any(b[0] <= sx <= b[2] and b[1] <= sy <= b[3] for b in points for sx, sy in samples)
+        total = own + order  # nearer first; ties go to right, above, below, left
+        # A point stacked almost exactly on this one can't be told apart by
+        # position anyway; judge against the rest, so the name doesn't drift
+        # onto a neighbour.
+        apart = [boxes[j] for j in range(len(centers))
+                 if j != i and np.hypot(*(centers[j] - centers[i])) > max(halves[i])]
+        if any(gap(box, b) <= own + 6 * pt for b in apart):
+            total += 3000  # as close to another point as its own: misreading is the worst outcome
+        if ring:
+            ex, ey = edge_point(box, i)
+            leader = (ex, ey, *centers[i])
+            if any(crosses(leader, seg) for seg in segments):
+                total += 2000  # leader lines that cross are hard to follow
+            if any(runs_through(leader, b) for b in others + boxes[len(centers):]):
+                total += 1000  # leader passes over another point or label
+        return total
 
     # Crowded points first, while there is still room around them.
     def neighbours(i):
         return int((np.hypot(*(centers - centers[i]).T) < 70 * pt).sum())
 
+    to_data = ax.transData.inverted()
     for i, text in sorted(labels, key=lambda pair: -neighbours(pair[0])):
         text.set_horizontalalignment("left")
         text.set_verticalalignment("bottom")
         extent = text.get_window_extent(renderer)
         w, h = extent.width + 2, extent.height + 2
         (cx, cy), (hw, hh) = centers[i], halves[i]
-        candidates = []  # (x0, y0, ring) in preference order
+        best, best_cost = None, None
         for ring, distance in enumerate(_DISTANCES):
             d = distance * pt
-            for dx, dy in _DIRECTIONS:
+            for order, (dx, dy) in enumerate(_DIRECTIONS):
                 x0 = cx + hw + d if dx > 0 else cx - hw - d - w if dx < 0 else cx - w / 2
                 y0 = cy + hh + d if dy > 0 else cy - hh - d - h if dy < 0 else cy - h / 2
-                candidates.append((x0, y0, ring))
-        # Best: free and clearly its own. Then: just free. Last resort: right of the point.
-        spot = next((c for c in candidates if free((c[0], c[1], c[0] + w, c[1] + h))
-                     and unambiguous((c[0], c[1], c[0] + w, c[1] + h), i, c[2])), None) \
-            or next((c for c in candidates if free((c[0], c[1], c[0] + w, c[1] + h))), None) \
-            or candidates[0]
-        x0, y0, ring = spot
-        far = ring > 0
+                c = cost((x0, y0, x0 + w, y0 + h), i, ring, order)
+                if c is not None and (best_cost is None or c < best_cost):
+                    best, best_cost = (x0, y0, ring), c
+        x0, y0, ring = best or (cx + hw + _DISTANCES[0] * pt, cy - h / 2, 0)  # nowhere free: right of the point
         boxes.append((x0, y0, x0 + w, y0 + h))
-        to_data = ax.transData.inverted()
         text.set_position(to_data.transform((x0 + 1, y0 + 1)))
-        if far:
+        if ring:
             # From the label's nearest edge to the point's center, drawn under
             # the point so the image hides the end of it.
             ex, ey = edge_point((x0, y0, x0 + w, y0 + h), i)
+            segments.append((ex, ey, cx, cy))
             ax.annotate(
                 "", xy=to_data.transform((cx, cy)), xytext=to_data.transform((ex, ey)),
                 arrowprops=dict(arrowstyle="-", color=REFERENCE, linewidth=0.6, shrinkA=1, shrinkB=0),
@@ -264,12 +349,15 @@ def place_labels(ax, points: np.ndarray, halves: np.ndarray, labels: list) -> No
 
 def scatter(df: pd.DataFrame, spec: ScatterSpec, out_path: str | Path) -> Path:
     """Draw spec's x and y from df as a scatter and save it as a PNG."""
-    needed = [c for c in (spec.x, spec.y, spec.label, spec.image) if c]
+    needed = [c for c in (spec.x, spec.y, spec.label, spec.image, spec.on_top) if c]
     missing = [c for c in needed if c not in df.columns]
     if missing:
         raise SystemExit(f"Query result has no column(s) {missing}. Columns returned: {list(df.columns)}")
 
-    data = df.dropna(subset=[spec.x, spec.y]).reset_index(drop=True)
+    data = df.dropna(subset=[spec.x, spec.y])
+    if spec.on_top:  # points are drawn in row order, so the last row ends up on top
+        data = data.sort_values(spec.on_top, kind="stable")
+    data = data.reset_index(drop=True)
     if data.empty:
         raise SystemExit("The query returned no rows with both x and y values.")
     if len(data) < len(df):
@@ -308,7 +396,7 @@ def scatter(df: pd.DataFrame, spec: ScatterSpec, out_path: str | Path) -> Path:
     if spec.label:
         show = ~as_image | spec.label_images
         labels = [
-            (i, ax.text(x[i], y[i], str(name), fontsize=9, color=INK_SECONDARY, zorder=4))
+            (i, ax.text(x[i], y[i], str(name), fontsize=spec.label_size, color=INK_SECONDARY, zorder=4))
             for i, name in enumerate(data[spec.label]) if show[i]
         ]
 
@@ -333,7 +421,8 @@ def scatter(df: pd.DataFrame, spec: ScatterSpec, out_path: str | Path) -> Path:
     # 10pt, 17 at 7.5pt) and leave room above the plot for every subtitle line.
     width_in = spec.figsize[0]
     subtitle = textwrap.wrap(spec.subtitle, int(width_in * 12))
-    caption = textwrap.wrap(spec.caption, int(width_in * 16.5))
+    # Each line of the caption wraps on its own, so a source line stays whole.
+    caption = [part for line in spec.caption.splitlines() for part in textwrap.wrap(line, int(width_in * 16.5))]
     ax.set_title(spec.title, loc="left", fontsize=14, fontweight="bold", color=INK, pad=16 + 13 * len(subtitle))
     if subtitle:
         ax.text(0, 1.02, "\n".join(subtitle), transform=ax.transAxes, fontsize=10, color=INK_SECONDARY,
@@ -345,9 +434,11 @@ def scatter(df: pd.DataFrame, spec: ScatterSpec, out_path: str | Path) -> Path:
     fig.tight_layout(rect=(0, caption_space, 1, 1))
 
     # Labels go last, once the layout is final, so positions measured now hold
-    # in the saved file.
+    # in the saved file. Quadrant labels first, so point labels avoid them.
+    points = np.column_stack([x, y])
+    taken = place_quadrant_labels(ax, spec.quadrants, (x.mean(), y.mean()), points, halves) if spec.quadrants else []
     if labels:
-        place_labels(ax, np.column_stack([x, y]), halves, labels)
+        place_labels(ax, points, halves, labels, taken)
 
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -377,18 +468,22 @@ def main() -> None:
     parser.add_argument("--x-format", choices=["number", "percent", "signed"], default="number")
     parser.add_argument("--y-format", choices=["number", "percent", "signed"], default="number")
     parser.add_argument("--no-mean-lines", action="store_true")
-    parser.add_argument("--caption", default="")
+    parser.add_argument("--quadrants", nargs=4, metavar=("TOP_LEFT", "TOP_RIGHT", "BOTTOM_LEFT", "BOTTOM_RIGHT"),
+                        help="a label for each quadrant around the average lines, as drawn")
+    parser.add_argument("--caption", default="", help=r"footnote; \n starts a new line")
     parser.add_argument("--out", default="charts/output/scatter.png")
     parser.add_argument("--profile", help="Databricks CLI profile (default: $DATABRICKS_CONFIG_PROFILE)")
     parser.add_argument("--warehouse-id", help="SQL warehouse ID (default: $DATABRICKS_WAREHOUSE_ID)")
     args = parser.parse_args()
 
     sql_text = args.sql or Path(args.sql_file).read_text()
+    args.caption = args.caption.replace("\\n", "\n")  # a typed \n means a line break
     spec = ScatterSpec(
         x=args.x, y=args.y, label=args.label, image=args.image, label_images=not args.no_image_labels,
         title=args.title, subtitle=args.subtitle, x_label=args.x_label, y_label=args.y_label,
         invert_x=args.invert_x, invert_y=args.invert_y, x_format=args.x_format, y_format=args.y_format,
-        mean_lines=not args.no_mean_lines, caption=args.caption,
+        mean_lines=not args.no_mean_lines, quadrants=tuple(args.quadrants) if args.quadrants else None,
+        caption=args.caption,
     )
     scatter(run_query(sql_text, args.profile, args.warehouse_id), spec, args.out)
 
