@@ -39,6 +39,9 @@ from mailer import send_charts  # noqa: E402
 from scatter import IN_DATABRICKS, ScatterSpec, run_query, scatter  # noqa: E402
 
 SEASON = 2026
+# Serverless compute here has no internet access, so in Databricks the logos
+# come from a volume (loaded by upload_logos.py); on a laptop, straight from ESPN.
+LOGO_DIR = "/Volumes/nfl/gold/team_logos"
 # The job's files are the deployed bundle, so write somewhere scratch instead.
 OUT_DIR = Path(tempfile.gettempdir()) / "nfl_charts" if IN_DATABRICKS else HERE / "output"
 
@@ -137,10 +140,10 @@ def charts(per_game: dict[str, float], through: str) -> dict[str, tuple[str, Sca
     qb, rb = (f"{per_game[k]:g}" for k in ("qb", "rb"))
     # Player charts: a logo and a name on every point. Where logos stack, the
     # player with more volume is drawn on top.
-    player = dict(image="team_logo_espn", image_size=20, label_size=9, figsize=PLAYER_FIGSIZE)
+    player = dict(image="logo", image_size=20, label_size=9, figsize=PLAYER_FIGSIZE)
     # Team charts: the logo is the label. Abbreviations appear only for a team
     # whose logo couldn't be fetched.
-    team = dict(label="team_abbr", image="team_logo_espn", label_images=False)
+    team = dict(label="team_abbr", image="logo", label_images=False)
     return {
         "qb_epa_cpoe": (
             QB_SQL.format(season=SEASON, volume="pass_plays", per_game=per_game["qb"]),
@@ -260,6 +263,13 @@ def charts(per_game: dict[str, float], through: str) -> dict[str, tuple[str, Sca
     }
 
 
+def with_logos(df):
+    """Add the logo each point is drawn with: the volume copy in Databricks, ESPN's URL elsewhere."""
+    df = df.copy()
+    df["logo"] = LOGO_DIR + "/" + df["team_abbr"] + ".png" if IN_DATABRICKS else df["team_logo_espn"]
+    return df
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Render the 2026 efficiency scatters.")
     parser.add_argument("--chart", help="render only this chart (default: all)")
@@ -293,7 +303,7 @@ def main() -> None:
     paths = []
     for name, (sql_text, spec) in selected.items():
         if sql_text not in results:
-            results[sql_text] = query(sql_text)
+            results[sql_text] = with_logos(query(sql_text))
         paths.append(scatter(results[sql_text], spec, OUT_DIR / f"{name}.png"))
 
     if args.email_to:

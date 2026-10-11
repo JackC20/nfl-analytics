@@ -15,8 +15,8 @@ Where the query runs:
     DATABRICKS_CONFIG_PROFILE   your CLI profile name   (databricks auth profiles)
     DATABRICKS_WAREHOUSE_ID     the SQL warehouse's ID  (warehouse page -> Overview)
 
-Points are drawn as images when --image names a column of image URLs (team
-logos), otherwise as dots. Text labels are optional; a point whose image
+Points are drawn as images when --image names a column of image URLs or file
+paths (team logos), otherwise as dots. Text labels are optional; a point whose image
 can't be fetched falls back to a dot with its label, so it is never anonymous.
 Dashed lines mark the average of the plotted points; --quadrants labels the
 four areas they divide the chart into.
@@ -69,7 +69,7 @@ class ScatterSpec:
     x: str
     y: str
     label: str | None = None
-    image: str | None = None    # column of image URLs to draw as the points
+    image: str | None = None    # column of image URLs or file paths to draw as the points
     image_size: float = IMAGE_PT  # points; smaller suits charts that also label every point
     label_images: bool = True   # False: label only the points drawn as dots
     label_size: float = 9       # point-label font size; smaller suits crowded charts
@@ -121,8 +121,12 @@ _images: dict[tuple[str, int], np.ndarray | None] = {}
 
 
 def _download(url: str) -> bytes | None:
+    """The image's bytes, from a web address or a file path (such as a /Volumes path)."""
     if url not in _downloads:
         try:
+            if not url.startswith(("http://", "https://")):
+                _downloads[url] = Path(url).read_bytes()
+                return _downloads[url]
             request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (nfl-analytics charts)"})
             with urllib.request.urlopen(request, timeout=15) as response:
                 _downloads[url] = response.read()
@@ -144,7 +148,7 @@ def with_halo(img: Image.Image) -> Image.Image:
 
 
 def load_image(url: str, size_px: int) -> np.ndarray | None:
-    """Fetch an image URL, trimmed and sized to about size_px across. None if it can't be fetched."""
+    """Load an image (URL or file path), trimmed and sized to about size_px across. None if it can't be loaded."""
     key = (url, size_px)
     if key not in _images:
         raw = _download(url)
@@ -460,7 +464,7 @@ def main() -> None:
     parser.add_argument("--x", required=True, help="column for the x axis")
     parser.add_argument("--y", required=True, help="column for the y axis")
     parser.add_argument("--label", help="column to label each point with")
-    parser.add_argument("--image", help="column of image URLs (e.g. team_logo_espn) to draw as the points")
+    parser.add_argument("--image", help="column of image URLs or file paths (e.g. team_logo_espn) to draw as the points")
     parser.add_argument("--no-image-labels", action="store_true",
                         help="with --image, label only points whose image couldn't load")
     parser.add_argument("--title", default="")

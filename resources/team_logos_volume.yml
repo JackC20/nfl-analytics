@@ -1,0 +1,11 @@
+# Team logos for the charts task. Serverless compute in this workspace can't
+# reach the internet, so the logos are copied in once from a laptop
+# (charts/upload_logos.py) and the job reads them from here.
+resources:
+  volumes:
+    team_logos:
+      catalog_name: ${var.catalog}
+      schema_name: gold
+      name: team_logos
+      volume_type: MANAGED
+      comment: One PNG per team, named <team_abbr>.png. Loaded by charts/upload_logos.py.
