@@ -1,6 +1,7 @@
 # Runs the pipeline Monday and Tuesday mornings, after the ingestion Lambda has
 # landed new files: Monday picks up Sunday's games, Tuesday picks up Monday night's.
-# Then emails the 2026 charts built from the refreshed gold tables.
+# Then renders the 2026 charts from the refreshed gold tables onto the run page,
+# and the success email links straight to it.
 resources:
   jobs:
     nfl_weekly:
@@ -16,7 +17,12 @@ resources:
         timezone_id: America/Chicago
         pause_status: UNPAUSED
 
+      # Sent by Databricks itself, so they work even though the job's own
+      # compute has no internet access. The success email links to the run,
+      # where the charts are.
       email_notifications:
+        on_success:
+          - ${workspace.current_user.userName}
         on_failure:
           - ${workspace.current_user.userName}
 
@@ -25,22 +31,12 @@ resources:
           pipeline_task:
             pipeline_id: ${resources.pipelines.nfl_pipeline.id}
 
-        # Renders the charts from gold and emails them. Runs only if the refresh
-        # succeeds, so the charts always show that morning's data.
-        - task_key: email_charts
+        # Renders the charts from gold and shows them on the run page. Runs only
+        # if the refresh succeeds, so the charts always show that morning's data.
+        # A notebook, not a script, because only notebook output shows images.
+        # Serverless notebooks already have matplotlib, pandas and pillow.
+        - task_key: charts
           depends_on:
             - task_key: refresh_pipeline
-          environment_key: charts
-          spark_python_task:
-            python_file: ../charts/nfl_charts.py
-            # Sent to and from this address through Gmail; see charts/mailer.py.
-            parameters: ["--email-to", "${workspace.current_user.userName}"]
-
-      # Serverless Python for the charts task. Environment 5 already has
-      # matplotlib, pandas and pillow; adjustText is the one extra.
-      environments:
-        - environment_key: charts
-          spec:
-            environment_version: "5"
-            dependencies:
-              - adjustText==1.4.0
+          notebook_task:
+            notebook_path: ../charts/weekly_charts.py

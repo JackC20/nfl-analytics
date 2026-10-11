@@ -12,8 +12,11 @@ plays per game his team has played, so the bar rises as the season goes on.
 
 On your laptop, PNGs land in charts/output/ and the connection settings are
 the same as scatter.py (DATABRICKS_CONFIG_PROFILE, DATABRICKS_WAREHOUSE_ID).
-As a Databricks job task, queries run on the job's own compute and the PNGs
-go to a temp folder; pass --email-to to get them. Email settings: mailer.py.
+Email settings: mailer.py.
+
+In Databricks, the weekly job runs weekly_charts.py, a notebook that calls
+render() and shows the charts on the run page. (The job can't email them
+itself: serverless compute in this workspace has no internet access.)
 
 Every chart is oriented so up and to the right is better. Defensive measures
 are EPA and success rate *allowed*, where lower is better, so those axes are
@@ -270,34 +273,30 @@ def with_logos(df):
     return df
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Render the 2026 efficiency scatters.")
-    parser.add_argument("--chart", help="render only this chart (default: all)")
-    parser.add_argument("--qb-per-game", type=float, default=6,
-                        help="QB charts: pass plays per team game to qualify (default 6)")
-    parser.add_argument("--rb-per-game", type=float, default=8,
-                        help="RB chart: carries per team game to qualify (default 8)")
-    parser.add_argument("--wr-per-game", type=float, default=5,
-                        help="WR chart: targets per team game to qualify (default 5)")
-    parser.add_argument("--te-per-game", type=float, default=3,
-                        help="TE chart: targets per team game to qualify (default 3)")
-    parser.add_argument("--email-to", help="Gmail address to email the charts to (and send from)")
-    parser.add_argument("--profile", help="Databricks CLI profile (default: $DATABRICKS_CONFIG_PROFILE)")
-    parser.add_argument("--warehouse-id", help="SQL warehouse ID (default: $DATABRICKS_WAREHOUSE_ID)")
-    args = parser.parse_args()
+# Qualifying plays per team game, by chart group.
+DEFAULT_PER_GAME = {"qb": 6, "rb": 8, "wr": 5, "te": 3}
+
+
+def render(
+    chart: str | None = None,
+    per_game: dict[str, float] | None = None,
+    profile: str | None = None,
+    warehouse_id: str | None = None,
+) -> tuple[str, list[Path]]:
+    """Render the charts (all, or just `chart`). Returns a title and the PNG paths, in order."""
+    per_game = {**DEFAULT_PER_GAME, **(per_game or {})}
 
     def query(sql_text: str):
-        return run_query(sql_text, args.profile, args.warehouse_id)
+        return run_query(sql_text, profile, warehouse_id)
 
     week = query(LATEST_WEEK_SQL.format(season=SEASON))["week"].iloc[0]
     through = f"through Week {int(week)}" if week == week else ""  # NaN-safe
 
-    per_game = {"qb": args.qb_per_game, "rb": args.rb_per_game, "wr": args.wr_per_game, "te": args.te_per_game}
     selected = charts(per_game, through)
-    if args.chart:
-        if args.chart not in selected:
-            raise SystemExit(f"Unknown chart '{args.chart}'. Choose from: {', '.join(selected)}")
-        selected = {args.chart: selected[args.chart]}
+    if chart:
+        if chart not in selected:
+            raise SystemExit(f"Unknown chart '{chart}'. Choose from: {', '.join(selected)}")
+        selected = {chart: selected[chart]}
 
     results = {}  # charts that share a query (the four team charts) run it once
     paths = []
@@ -305,9 +304,29 @@ def main() -> None:
         if sql_text not in results:
             results[sql_text] = with_logos(query(sql_text))
         paths.append(scatter(results[sql_text], spec, OUT_DIR / f"{name}.png"))
+    return f"NFL {SEASON} charts {through}".strip(), paths
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Render the 2026 efficiency scatters.")
+    parser.add_argument("--chart", help="render only this chart (default: all)")
+    parser.add_argument("--qb-per-game", type=float, default=DEFAULT_PER_GAME["qb"],
+                        help="QB charts: pass plays per team game to qualify (default %(default)g)")
+    parser.add_argument("--rb-per-game", type=float, default=DEFAULT_PER_GAME["rb"],
+                        help="RB chart: carries per team game to qualify (default %(default)g)")
+    parser.add_argument("--wr-per-game", type=float, default=DEFAULT_PER_GAME["wr"],
+                        help="WR chart: targets per team game to qualify (default %(default)g)")
+    parser.add_argument("--te-per-game", type=float, default=DEFAULT_PER_GAME["te"],
+                        help="TE chart: targets per team game to qualify (default %(default)g)")
+    parser.add_argument("--email-to", help="Gmail address to email the charts to (and send from); laptop only")
+    parser.add_argument("--profile", help="Databricks CLI profile (default: $DATABRICKS_CONFIG_PROFILE)")
+    parser.add_argument("--warehouse-id", help="SQL warehouse ID (default: $DATABRICKS_WAREHOUSE_ID)")
+    args = parser.parse_args()
+
+    per_game = {"qb": args.qb_per_game, "rb": args.rb_per_game, "wr": args.wr_per_game, "te": args.te_per_game}
+    title, paths = render(args.chart, per_game, args.profile, args.warehouse_id)
 
     if args.email_to:
-        title = f"NFL {SEASON} charts {through}".strip()
         send_charts(paths, args.email_to, subject=title, intro=f"{title}. Top right is best on every chart.")
 
 
