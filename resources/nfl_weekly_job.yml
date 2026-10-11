@@ -1,5 +1,6 @@
 # Runs the pipeline Monday and Tuesday mornings, after the ingestion Lambda has
 # landed new files: Monday picks up Sunday's games, Tuesday picks up Monday night's.
+# Then emails the 2026 charts built from the refreshed gold tables.
 resources:
   jobs:
     nfl_weekly:
@@ -23,3 +24,23 @@ resources:
         - task_key: refresh_pipeline
           pipeline_task:
             pipeline_id: ${resources.pipelines.nfl_pipeline.id}
+
+        # Renders the charts from gold and emails them. Runs only if the refresh
+        # succeeds, so the charts always show that morning's data.
+        - task_key: email_charts
+          depends_on:
+            - task_key: refresh_pipeline
+          environment_key: charts
+          spark_python_task:
+            python_file: ../charts/nfl_charts.py
+            # Sent to and from this address through Gmail; see charts/mailer.py.
+            parameters: ["--email-to", "${workspace.current_user.userName}"]
+
+      # Serverless Python for the charts task. Environment 5 already has
+      # matplotlib, pandas and pillow; adjustText is the one extra.
+      environments:
+        - environment_key: charts
+          spec:
+            environment_version: "5"
+            dependencies:
+              - adjustText==1.4.0

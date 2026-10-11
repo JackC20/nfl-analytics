@@ -1,4 +1,4 @@
-# Bronze + silver Lakeflow pipeline. The code uses two-part names
+# Bronze, silver and gold Lakeflow pipeline. The code uses two-part names
 # (bronze.pbp, silver.plays), which resolve against this pipeline's catalog.
 resources:
   pipelines:
@@ -12,6 +12,10 @@ resources:
 
       configuration:
         raw_path: ${var.raw_path}
+        # Retries off. The default re-runs a failed update 5 more times, which
+        # only helps transient failures and multiplies the cost of real ones.
+        # A failed scheduled run emails you; rerun it by hand once fixed.
+        pipelines.numUpdateRetryAttempts: "1"
 
       # Listed explicitly, so older silver versions in the folder are never picked up.
       libraries:
@@ -19,3 +23,5 @@ resources:
             path: ../pipeline/bronze.py
         - file:
             path: ../pipeline/silver.py
+        - file:
+            path: ../pipeline/gold.py

@@ -4,7 +4,7 @@ NFL raw ingestion, AWS Lambda function, also runnable locally.
 Pulls datasets via nflreadpy and lands them as raw parquet in S3.
 Script performs no transformations, meant to just grab raw data and place them within datalake
 
-The one exception is KEY_TYPES: a handful of key columns are cast to a fixed
+The one exception is KEY_TYPES: a handful of columns are cast to a fixed
 type on the way in, because nflverse changes them across seasons and parquet
 stores the type per file. See the comment there.
 
@@ -242,17 +242,27 @@ def build_key(prefix: str, dataset: str, ingest_date: str, season: Optional[int]
 # widening: 341,718 rows reached bronze with a null play_id and the real value
 # stranded in _rescued_data. Nothing errored.
 #
-# Bronze cannot fix a raw layer that contradicts itself, so key columns are
-# pinned here. Only keys — everything else stays exactly as the source sent it.
+# The same happens outside keys. pbp ships goal_to_go as Float64 in 1999-2002,
+# 2020 and 2024 on, Int32 in every other season; xyac_median_yardage is Float64
+# through 2005 and Int32 from 2006. Bronze inferred Float64 from the earliest
+# files, so every integer season's values were rescued: 1,107,004 rows, with
+# both columns null in bronze and silver.
+#
+# Bronze cannot fix a raw layer that contradicts itself, so these columns are
+# pinned here: keys, and columns nflverse is known to change type on. Each is
+# pinned to the type bronze already holds. Everything else stays exactly as
+# the source sent it. A new flip shows up as bronze's nothing_rescued warning,
+# and gets an entry here.
 
 KEY_TYPES: dict[str, dict[str, pl.DataType]] = {
     "participation": {"play_id": pl.Int64},
+    "pbp": {"goal_to_go": pl.Float64, "xyac_median_yardage": pl.Float64},
 }
 
 
 def normalize_keys(df: Optional[pl.DataFrame], dataset: str) -> Optional[pl.DataFrame]:
     """
-    Cast a dataset's key columns to their declared type.
+    Cast a dataset's pinned columns to their declared type.
 
     A dataset with nothing declared, or a column the source did not send, is
     passed through untouched.
@@ -284,7 +294,7 @@ def normalize_keys(df: Optional[pl.DataFrame], dataset: str) -> Optional[pl.Data
 def ingest_pbp(seasons_arg: Optional[str], bucket: str, prefix: str, ingest_date: str) -> tuple[int, int]:
     attempts = rows = 0
     for season in resolve_seasons(seasons_arg, PBP_START):
-        df = nfl.load_pbp(seasons=[season])
+        df = normalize_keys(nfl.load_pbp(seasons=[season]), "pbp")
         attempts += 1
         rows += write_parquet(df, bucket, build_key(prefix, "pbp", ingest_date, season))
     return attempts, rows
