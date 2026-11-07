@@ -2,7 +2,8 @@
 Gold layer: Lakeflow declarative pipeline.
 
 A dimensional model for reporting and visuals, built from silver. Scope is
-the seasons in GOLD_SEASONS (2026 for now). Every table is a materialized view.
+every season silver holds (1999 on), unless GOLD_SEASONS limits it. Every
+table is a materialized view.
 
   Dimensions
     gold.dim_team            one row per franchise (team_id)
@@ -71,9 +72,9 @@ from pyspark.sql import functions as F
 from pyspark.sql.functions import col
 from pyspark.sql.window import Window
 
-# Seasons loaded into gold. Add a season here to backfill it; every table
-# below reads this list.
-GOLD_SEASONS = [2026]
+# Seasons loaded into gold. None loads every season silver holds; a list, such
+# as [2025, 2026], limits gold to those. Every table below goes through in_scope().
+GOLD_SEASONS = None
 
 GAME_KEYS = ["season", "season_type", "week", "game_id"]
 
@@ -114,6 +115,11 @@ TARGET_PLAYS = (
 )
 
 
+def in_scope(df: DataFrame) -> DataFrame:
+    """df's rows in GOLD_SEASONS, or all of them when GOLD_SEASONS is None."""
+    return df if GOLD_SEASONS is None else df.filter(col("season").isin(GOLD_SEASONS))
+
+
 def ratio(numerator: str, denominator: str) -> Column:
     """numerator / denominator, null rather than an error when it would divide by 0."""
     return F.expr(f"try_divide({numerator}, {denominator})")
@@ -137,8 +143,7 @@ def dim_team() -> DataFrame:
     # one. A franchise absent from those plays falls back to its first
     # abbreviation alphabetically, so every franchise still gets exactly one row.
     current = (
-        spark.read.table("silver.plays")
-        .filter(col("season").isin(GOLD_SEASONS))
+        in_scope(spark.read.table("silver.plays"))
         .select(col("posteam").alias("team_abbr"))
         .distinct()
         .withColumn("is_current", F.lit(1))
@@ -179,12 +184,11 @@ def dim_player() -> DataFrame:
 
 @dp.materialized_view(
     name="gold.dim_game",
-    comment="One row per game in GOLD_SEASONS, played or scheduled. Grain: game_id.",
+    comment="One row per game in gold's seasons, played or scheduled. Grain: game_id.",
 )
 def dim_game() -> DataFrame:
     return (
-        spark.read.table("silver.games")
-        .filter(col("season").isin(GOLD_SEASONS))
+        in_scope(spark.read.table("silver.games"))
         .select(
             "game_id", "season", "game_type", "week", "gameday", "weekday",
             "kickoff_ts",
@@ -204,12 +208,11 @@ def dim_game() -> DataFrame:
 
 @dp.materialized_view(
     name="gold.fact_play",
-    comment="One row per play in GOLD_SEASONS. Grain: game_id + play_id. silver.plays plus shared gold flags.",
+    comment="One row per play in gold's seasons. Grain: game_id + play_id. silver.plays plus shared gold flags.",
 )
 def fact_play() -> DataFrame:
     return (
-        spark.read.table("silver.plays")
-        .filter(col("season").isin(GOLD_SEASONS))
+        in_scope(spark.read.table("silver.plays"))
         .withColumns({
             "is_scrimmage_play": F.expr(f"CASE WHEN {IS_SCRIMMAGE} THEN 1 ELSE 0 END").cast("tinyint"),
             "is_explosive": F.expr(IS_EXPLOSIVE).cast("tinyint"),
