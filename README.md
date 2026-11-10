@@ -1,15 +1,15 @@
 # NFL Analytics Pipeline
 
 An end-to-end data platform for NFL play-by-play data from [nflverse](https://github.com/nflverse),
-running daily on AWS and Databricks.
+running every Monday and Tuesday morning on AWS and Databricks.
 
-- **Ingestion:** a containerized Lambda lands seven nflverse datasets in an append-only S3 raw
-  layer every morning, with CloudWatch alarms when it breaks.
+- **Ingestion:** a containerized Lambda lands nflverse data in an append-only S3 raw layer
+  every Monday and Tuesday morning, with CloudWatch alarms when it breaks.
 - **Pipeline:** a Lakeflow pipeline in Unity Catalog takes about 1.3 million plays from 28
-  seasons (1999–2026) through bronze and silver, and models the current season as a gold star
+  seasons (1999–2026) through bronze and silver, and models every season as a gold star
   schema.
-- **Delivery:** a weekly job refreshes the pipeline and renders nine charts from gold. The
-  Databricks side deploys as an asset bundle from `main`.
+- **Delivery:** a scheduled job refreshes the pipeline and renders nine charts of the 2026
+  season from gold. The Databricks side deploys as an asset bundle from `main`.
 
 <p>
   <img src="docs/chart_qb_epa_cpoe.png" width="49%" alt="QB efficiency vs. accuracy: EPA per pass play against completion percentage above expected, one team logo per quarterback, split into four labeled quadrants.">
@@ -32,7 +32,7 @@ flowchart LR
         GH --> DAB["Databricks<br/>asset bundle"]
     end
 
-    subgraph runtime["Ingestion - daily 06:15 CT"]
+    subgraph runtime["Ingestion - Mon and Tue 06:15 CT"]
         EB["EventBridge<br/>Scheduler"] --> L["Lambda<br/>nfl-analytics-ingestion"]
         NV[("nflverse<br/>releases")] --> L
         L --> S3[("S3<br/>raw layer")]
@@ -54,9 +54,9 @@ flowchart LR
     DAB -.->|"pipeline + job"| dbx
 ```
 
-CodeBuild only runs when code changes. The Lambda runs daily and never touches a build. The
-Databricks job runs Monday and Tuesday mornings: Monday picks up Sunday's games, Tuesday
-picks up Monday night's.
+CodeBuild only runs when code changes. The Lambda runs Monday and Tuesday mornings and never
+touches a build, and the Databricks job follows 45 minutes later on the same mornings. Monday
+picks up the week's games through Sunday, and Tuesday picks up Monday night's.
 
 ## Repository layout
 
@@ -64,7 +64,8 @@ picks up Monday night's.
 ingestion/        Lambda ingestion: NflAnalyticsDataPull.py, Dockerfile, requirements
 pipeline/         The Lakeflow pipeline: bronze.py, silver.py, gold.py
 charts/           scatter.py (any SQL query -> scatter chart), nfl_charts.py (the weekly set),
-                  weekly_charts.py (the job's notebook), upload_logos.py, mailer.py
+                  weekly_charts.py (the job's notebook), upload_logos.py, mailer.py (emails
+                  the charts from a laptop run)
 resources/        Bundle resources: the pipeline, the weekly job, the logo volume
 docs/             Diagrams and sample charts used in this README
 databricks.yml    Bundle configuration
@@ -79,7 +80,7 @@ Seven nflverse datasets, written as raw Parquet with no transformation: `pbp` (1
 
 Start years differ per source, so a full-history request gets clamped to what each one
 actually has. `participation` always trails the current season by a year and only updates
-annually, so it's excluded from the daily run.
+annually, so it's excluded from the scheduled run.
 
 ## Data layout
 
@@ -124,8 +125,9 @@ time, and drive time of possession in seconds.
 
 ### Gold
 
-A dimensional model for reporting and charts, scoped to the 2026 season. Every table is a
-materialized view. Green boxes are dimensions, gold is the atomic fact and blue are
+A dimensional model for reporting and charts, covering every season silver holds (1999 on).
+`GOLD_SEASONS` in `gold.py` can limit it to a list of seasons. Every table is a materialized
+view. Green boxes are dimensions, gold is the atomic fact and blue are
 aggregates; a crow's foot marks the many side of a join.
 
 ![Gold star schema. fact_play joins dim_game on game_id, dim_team twice (posteam and defteam) and dim_player three times (passer, rusher and receiver). dim_game joins dim_team on the home and away team.](docs/gold_star_schema.svg)
@@ -160,14 +162,15 @@ Each table's join key to each dimension (a dash means it doesn't join to that di
 | `agg_team_season` | — | `team_id` | — |
 | `dim_game` | — | `home_team_id`, `away_team_id` | — |
 
-Player stats follow nflverse's own counting rules, so they reconcile with nflverse's published
-player stats for 2026, apart from two small differences listed under Known gaps.
+Player stats follow nflverse's own counting rules. Checked against nflverse's published 2026
+player stats (Weeks 1–5), they reconcile apart from two small differences listed under Known
+gaps.
 
 ### Weekly job and charts
 
-The `nfl-weekly` job runs the pipeline, then a notebook that renders nine scatter charts from
-gold, each split into labeled quadrants around the league average with team logos as the
-points:
+The `nfl-weekly` job runs the pipeline, then a notebook that renders nine scatter charts of
+the 2026 regular season from gold, each split into labeled quadrants around the average of
+the plotted points, with team logos as the points:
 
 - QB efficiency vs. accuracy (EPA per pass play vs. CPOE)
 - QB value from the throw vs. after the catch
@@ -233,7 +236,7 @@ function config.
 
 ### The backfill ran locally
 
-Lambda caps a run at 15 minutes and 27 seasons of play-by-play doesn't fit. Rather than
+Lambda caps a run at 15 minutes and the full play-by-play history doesn't fit. Rather than
 building chunking and checkpointing for something that runs once, I ran it from my laptop
 against the same bucket. The script checks whether it's in Lambda and parses the same
 parameters as CLI flags when it isn't.
@@ -267,8 +270,12 @@ treat missing data as healthy.
 The first full load put 86% of play-by-play rows into bronze's `_rescued_data`. nflverse
 ships `goal_to_go` and `xyac_median_yardage` as integers in some seasons and floats in others,
 and Auto Loader won't widen an integer column to fit a float, so it rescues the value instead.
-The ingestion script now casts the columns that flip to one type before writing, so every
-season's file has the same schema.
+Participation hit the same problem on its key: `play_id` is an integer through 2022 and a
+float from 2023, and 341,718 rows reached bronze with a null `play_id`.
+
+The ingestion script now casts the columns that flip to one type before writing (`KEY_TYPES`
+in `NflAnalyticsDataPull.py`), so every season's file has the same schema. A new flip shows up
+as bronze's `nothing_rescued` warning and gets an entry there.
 
 ### Silver rebuilds instead of merging
 
@@ -315,7 +322,7 @@ job's success email, which Databricks sends itself, links straight to them.
 | ECR repository | `nfl-analytics-ingestion`, lifecycle keeps 5 images |
 | CodeBuild project | `nfl-analytics-ingestion-build`, EC2 + privileged |
 | Lambda | `nfl-analytics-ingestion`, container, 2048 MB, 900s timeout |
-| Schedule | EventBridge Scheduler, `cron(15 6 * * ? *)` America/Chicago |
+| Schedule | EventBridge Scheduler, `cron(15 6 ? * MON,TUE *)` America/Chicago |
 | Alerts | SNS topic with email subscription |
 | Catalog | Unity Catalog `nfl`, schemas `bronze`, `silver`, `gold`, managed storage in S3 |
 | Pipeline | `nfl-pipeline`, serverless, triggered by the job |
@@ -334,7 +341,7 @@ one ECR repository and updates one function.
 **Invoke** with an event payload, all keys optional:
 
 ```json
-{}                                        // daily default
+{}                                        // scheduled default: current season, all but participation
 {"datasets": "teams"}
 {"datasets": "all", "seasons": "2024"}
 ```
@@ -379,6 +386,7 @@ export DATABRICKS_WAREHOUSE_ID=<warehouse id>
 
 python charts/nfl_charts.py                       # all nine, to charts/output/
 python charts/nfl_charts.py --chart team_epa      # just one
+python charts/nfl_charts.py --email-to you@gmail.com   # render, then email them (setup in mailer.py)
 python charts/scatter.py --sql "SELECT team_abbr, team_logo_espn, off_epa_per_play, def_epa_per_play
                                 FROM nfl.gold.agg_team_season WHERE season = 2026" \
     --x off_epa_per_play --y def_epa_per_play --image team_logo_espn --invert-y
@@ -390,8 +398,9 @@ the season goes on. Override with `--qb-per-game`, `--rb-per-game`, `--wr-per-ga
 
 ## Known gaps
 
-`pfr_advstats` have genuinely different schemas — passing, receiving and rushing share only
-11 of 29/23/22 columns — so each needs its own bronze table rather than a union.
+The Next Gen Stats and PFR stat types have genuinely different schemas. Next Gen Stats
+passing, receiving and rushing share only 11 of 29/23/22 columns, and PFR's four stat types
+share 9, so each needs its own bronze table rather than a union.
 
 **Participation, Next Gen Stats and PFR stop at bronze.** Silver models play-by-play and the
 tables it joins to; the rest waits until those are settled.
@@ -408,7 +417,8 @@ nflverse to the player who caught the lateral and aren't here. EPA matches exact
 players and within about 2 for the rest, because nflverse's stats build values a few plays
 slightly differently.
 
-**Gold covers 2026 only.** Adding a season to `GOLD_SEASONS` in `gold.py` backfills it.
+**The charts are hardcoded to 2026.** Gold covers every season, but `SEASON` in
+`charts/nfl_charts.py` has to change by hand when the season rolls over.
 
 **No automated tests yet.** The quarantine tables and the `nothing_rescued` expectation are the
 main checks on data quality.
